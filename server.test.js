@@ -40,7 +40,7 @@ describe("WebSocket Server", () => {
   });
 
   test("should receive broadcast messages", async () => {
-    const testMessage = "Hello, WebSocket!";
+    const testMessage = "Broadcasting to multiple clients";
     
     await new Promise((resolve) => {
       clientSocket.on("message", (data) => {
