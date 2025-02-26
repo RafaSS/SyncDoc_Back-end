@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncDoc Chat</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Add htmx -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- Tailwind CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="font-sans max-w-3xl mx-auto p-5 bg-background text-text">
+    <div class="header">
+        <h1 class="text-2xl font-bold">SyncDoc Chat</h1>
+        <div id="user-info" class="user-info">Loading user info...</div>
+    </div>
+    
+    <div id="chat-container">
+        <div id="messages"></div>
+        <div id="typing-indicator" class="typing-indicator"></div>
+    </div>
+    
+    <form id="message-form">
+        <input type="text" id="message-input" placeholder="Type a message..." required>
+        <button type="submit">Send</button>
+    </form>
+
+    <div class="user-legend">
+        <div class="legend-item">
+            <div class="legend-color legend-self"></div>
+            <span>Your messages</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color legend-other"></div>
+            <span>Other users' messages</span>
+        </div>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="main.js" type="module"></script>
+</body>
+</html>

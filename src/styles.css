@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .header {
+    @apply flex justify-between items-center mb-5;
+  }
+
+  .user-info {
+    @apply bg-white py-2 px-4 rounded-full shadow;
+  }
+
+  #chat-container {
+    @apply border border-gray-300 rounded-lg bg-white shadow mb-5 flex flex-col;
+  }
+
+  #messages {
+    @apply h-96 overflow-y-auto p-4;
+  }
+
+  .message {
+    @apply mb-3 py-2.5 px-4 rounded-3xl max-w-[80%] relative animate-[fadeIn_0.3s_ease-in-out];
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message-self {
+    @apply bg-primary text-white ml-auto rounded-br-sm;
+  }
+
+  .message-other {
+    @apply bg-messageOther text-text mr-auto rounded-bl-sm;
+  }
+
+  .message-system {
+    @apply bg-light text-secondary text-center italic mx-auto my-2.5 py-1.5 px-4 rounded-lg max-w-[90%];
+  }
+
+  .message-meta {
+    @apply flex text-xs mb-1;
+  }
+
+  .message-self .message-meta {
+    @apply justify-end;
+  }
+
+  .message-username {
+    @apply font-semibold;
+  }
+
+  .message-time {
+    @apply text-gray-500 ml-2;
+  }
+
+  .message-content {
+    @apply break-words;
+  }
+
+  .typing-indicator {
+    @apply text-xs text-gray-500 italic p-2 h-6;
+  }
+
+  #message-form {
+    @apply flex gap-2 mb-5;
+  }
+
+  #message-input {
+    @apply flex-1 py-2 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary;
+  }
+
+  button[type="submit"] {
+    @apply bg-primary text-white py-2 px-6 rounded-lg hover:bg-primary-dark transition-colors;
+  }
+
+  .user-legend {
+    @apply flex flex-col gap-2 text-sm text-gray-600;
+  }
+
+  .legend-item {
+    @apply flex items-center gap-2;
+  }
+
+  .legend-color {
+    @apply w-4 h-4 rounded-full;
+  }
+
+  .legend-self {
+    @apply bg-primary;
+  }
+
+  .legend-other {
+    @apply bg-messageOther;
+  }
+}
