@@ -3,87 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Demo</title>
+    <title>SyncDoc Chat</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        #messages {
-            border: 1px solid #ccc;
-            height: 300px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            padding: 10px;
-        }
-        #message-form {
-            display: flex;
-            gap: 10px;
-        }
-        input[type="text"] {
-            flex-grow: 1;
-            padding: 5px;
-        }
-        button {
-            padding: 5px 15px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-    </style>
+    <!-- Add htmx -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- External CSS -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>WebSocket Demo</h1>
-    <div id="messages"></div>
-    <form id="message-form">
-        <input type="text" id="message-input" placeholder="Type a message..." required>
+    <div class="header">
+        <h1>SyncDoc Chat</h1>
+        <div id="user-info" class="user-info">Loading user info...</div>
+    </div>
+    
+    <div id="messages" hx-get="/api/messages" hx-trigger="load"></div>
+    <div id="typing-indicator" class="typing-indicator"></div>
+    
+    <form id="message-form" hx-on:submit="sendMessage(event)">
+        <input type="text" id="message-input" placeholder="Type a message..." required
+               hx-on:keydown="handleTyping()">
         <button type="submit">Send</button>
     </form>
 
-    <script>
-        const socket = io('ws://localhost:3000');
-        const messagesDiv = document.getElementById('messages');
-        const messageForm = document.getElementById('message-form');
-        const messageInput = document.getElementById('message-input');
-
-        // Connection status
-        socket.on('connect', () => {
-            appendMessage('System', 'Connected to server');
-        });
-
-        socket.on('disconnect', () => {
-            appendMessage('System', 'Disconnected from server');
-        });
-
-        // Handle incoming messages
-        socket.on('message', (data) => {
-            appendMessage('Other', data);
-        });
-
-        // Send message
-        messageForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const message = messageInput.value;
-            if (message.trim()) {
-                socket.emit('message', message);
-                appendMessage('You', message);
-                messageInput.value = '';
-            }
-        });
-
-        function appendMessage(sender, message) {
-            const messageElement = document.createElement('div');
-            messageElement.textContent = `${sender}: ${message}`;
-            messagesDiv.appendChild(messageElement);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
-    </script>
+    <!-- External JavaScript -->
+    <script src="main.js"></script>
 </body>
 </html>

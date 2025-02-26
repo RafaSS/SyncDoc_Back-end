@@ -1,6 +1,6 @@
-# Bun WebSocket Demo
+# SyncDoc Chat
 
-A simple WebSocket demo using Bun and Socket.IO.
+A real-time chat application built with Express, Socket.IO, and htmx.
 
 ## Prerequisites
 
@@ -18,14 +18,35 @@ bun install
 bun run start
 ```
 
-3. Open `index.html` in your web browser
+3. Open your browser and navigate to `http://localhost:3000`
 
 ## Features
 
 - Real-time bidirectional communication
-- Simple chat interface
-- Broadcast messages to all connected clients
+- User differentiation (distinguishes between your messages and others)
+- Automatic user identification
+- Message timestamps
+- Modern, responsive UI
+- User join/leave notifications
+- Typing indicators
 
 ## How it works
 
-The server runs on port 3000 and handles WebSocket connections using Socket.IO. The client can connect to the server and send/receive messages in real-time.
+The application uses:
+- Express for serving static files and handling HTTP requests
+- Socket.IO for real-time bidirectional communication
+- htmx for AJAX requests and enhanced interactivity
+- UUID for generating unique user IDs
+- Cookies to persist user identity between sessions
+
+User messages are displayed differently based on whether they are from the current user or others, making it easy to follow conversations.
+
+## Technologies Used
+
+- Express.js
+- Socket.IO
+- htmx
+- HTML5/CSS3
+- JavaScript (ES6+)
+- UUID
+- Cookie-Parser
