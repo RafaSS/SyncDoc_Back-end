@@ -3,12 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SyncDoc Chat</title>
+    <title>SyncDoc Chat - User 2</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <!-- Add htmx -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <!-- External CSS -->
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Override header color to distinguish users */
+        .header {
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        :root {
+            /* Invert colors to clearly distinguish User 2 */
+            --message-self-color: #28a745;  /* Green instead of blue */
+            --message-other-color: #f8f9fa;
+        }
+
+        .message-self {
+            background-color: var(--message-self-color);
+        }
+
+        .legend-self {
+            background-color: var(--message-self-color);
+        }
+        
+        /* Add a badge to show this is User 2 */
+        .header h1:after {
+            content: " (User 2)";
+            font-size: 0.7em;
+            background-color: #28a745;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+    </style>
 </head>
 <body>
     <div class="header">

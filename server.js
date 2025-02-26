@@ -9,9 +9,16 @@ import cookieParser from 'cookie-parser';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
+// Try different ports if 3000 is in use
 const PORT = process.env.PORT || 3000;
+const MAX_PORT_ATTEMPTS = 10;
 const users = new Map(); // Store user data: socket.id -> { username, id }
 
 // Middleware
@@ -80,6 +87,11 @@ io.on('connection', (socket) => {
     io.emit('message', messageData);
   });
 
+  // Handle typing indicators
+  socket.on('typing', (data) => {
+    socket.broadcast.emit('typing', data);
+  });
+
   // Handle client disconnection
   socket.on('disconnect', () => {
     const user = users.get(socket.id);
@@ -96,7 +108,25 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
-httpServer.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Try to start server on PORT, if fails try PORT+1, PORT+2, etc.
+let currentPort = PORT;
+let attempts = 0;
+
+function startServer(port) {
+  httpServer.listen(port)
+    .on('error', (err) => {
+      if (err.code === 'EADDRINUSE' && attempts < MAX_PORT_ATTEMPTS) {
+        console.log(`Port ${port} is in use, trying ${port + 1}`);
+        attempts++;
+        startServer(port + 1);
+      } else {
+        console.error('Failed to start server:', err.message);
+        process.exit(1);
+      }
+    })
+    .on('listening', () => {
+      console.log(`Server running on http://localhost:${port}`);
+    });
+}
+
+startServer(currentPort);

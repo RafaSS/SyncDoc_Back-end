@@ -5,19 +5,23 @@ let typingTimeout;
 
 // Connect to Socket.IO after getting user info
 async function initializeApp() {
+    console.log('Initializing app...');
     try {
         // Get user info from the server
         const response = await fetch('/api/user');
         currentUser = await response.json();
+        console.log('User info:', currentUser);
         
         // Update user info display
         document.getElementById('user-info').textContent = `Connected as: ${currentUser.username}`;
         
-        // Connect to WebSocket server
-        socket = io();
+        // Connect to WebSocket server - use window.location to adapt to any port
+        socket = io(window.location.origin);
+        console.log('Socket connection created');
         
         // Send identification to server
         socket.on('connect', () => {
+            console.log('Socket connected');
             socket.emit('identify', currentUser);
             appendMessage({
                 type: 'system',
@@ -34,6 +38,7 @@ async function initializeApp() {
         
         // Handle incoming messages
         socket.on('message', (data) => {
+            console.log('Received message:', data);
             appendMessage({
                 type: data.userId === currentUser.userId ? 'self' : 'other',
                 username: data.username,
@@ -44,6 +49,7 @@ async function initializeApp() {
         
         // Handle user joined notifications
         socket.on('user-joined', (data) => {
+            console.log('User joined:', data);
             appendMessage({
                 type: 'system',
                 message: data.message,
@@ -53,6 +59,7 @@ async function initializeApp() {
         
         // Handle user left notifications
         socket.on('user-left', (data) => {
+            console.log('User left:', data);
             appendMessage({
                 type: 'system',
                 message: data.message,
@@ -70,12 +77,20 @@ async function initializeApp() {
                 }, 3000);
             }
         });
+
+        // Set up form submission event
+        const messageForm = document.getElementById('message-form');
+        messageForm.addEventListener('submit', sendMessage);
+        
+        // Set up typing event
+        const messageInput = document.getElementById('message-input');
+        messageInput.addEventListener('keydown', handleTyping);
         
     } catch (error) {
         console.error('Error initializing app:', error);
         appendMessage({
             type: 'system',
-            message: 'Error connecting to server'
+            message: 'Error connecting to server: ' + error.message
         });
     }
 }
@@ -87,6 +102,7 @@ function sendMessage(event) {
     const message = messageInput.value.trim();
     
     if (message && socket && socket.connected) {
+        console.log('Sending message:', message);
         socket.emit('message', message);
         messageInput.value = '';
         document.getElementById('typing-indicator').textContent = '';
@@ -111,6 +127,7 @@ function handleTyping() {
 
 // Append a message to the messages container
 function appendMessage(data) {
+    console.log('Appending message:', data);
     const messagesDiv = document.getElementById('messages');
     const messageElement = document.createElement('div');
     
@@ -161,4 +178,7 @@ function formatTime(timestamp) {
 }
 
 // Initialize the app when the page loads
-document.addEventListener('DOMContentLoaded', initializeApp);
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM content loaded');
+    initializeApp();
+});
