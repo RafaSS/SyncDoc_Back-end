@@ -5,10 +5,11 @@ import { Server } from "socket.io";
 describe("WebSocket Server", () => {
   let io;
   let clientSocket;
+  const TEST_PORT = 3001;
 
   beforeAll(() => {
-    // Start the server
-    io = new Server(3001, {
+    // Start a test server
+    io = new Server(TEST_PORT, {
       cors: {
         origin: "*"
       }
@@ -25,11 +26,13 @@ describe("WebSocket Server", () => {
   afterAll(() => {
     // Clean up
     io.close();
-    clientSocket?.close();
+    if (clientSocket) {
+      clientSocket.close();
+    }
   });
 
   test("should connect to the WebSocket server", async () => {
-    clientSocket = Client("ws://localhost:3001");
+    clientSocket = Client(`http://localhost:${TEST_PORT}`);
     
     await new Promise((resolve) => {
       clientSocket.on("connect", () => {
@@ -53,20 +56,22 @@ describe("WebSocket Server", () => {
   });
 
   test("should handle multiple clients", async () => {
-    const client2 = Client("ws://localhost:3001");
+    const client2 = Client(`http://localhost:${TEST_PORT}`);
     const testMessage = "Broadcasting to multiple clients";
     
     await new Promise((resolve) => {
       let receivedCount = 0;
+      
       const messageHandler = (data) => {
         expect(data).toBe(testMessage);
         receivedCount++;
+        
+        // When both clients receive the message, we're done
         if (receivedCount === 2) {
-          client2.close();
           resolve();
         }
       };
-
+      
       clientSocket.on("message", messageHandler);
       client2.on("message", messageHandler);
       
@@ -75,5 +80,7 @@ describe("WebSocket Server", () => {
         clientSocket.emit("message", testMessage);
       });
     });
+    
+    client2.close();
   });
 });

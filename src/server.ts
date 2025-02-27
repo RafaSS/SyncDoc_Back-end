@@ -1,9 +1,7 @@
-import express from 'express';
-import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
+import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import * as path from 'path';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 
@@ -24,36 +22,22 @@ interface MessageData {
   timestamp: string;
 }
 
-interface NotificationData {
-  message: string;
-  timestamp: string;
-}
-
-// Get __dirname equivalent in ESM
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Create Express app
 const app = express();
-const httpServer = createServer(app);
-const io = new SocketIOServer(httpServer, {
-  cors: {
-    origin: process.env.ALLOWED_ORIGINS || "*",
-    methods: ["GET", "POST"]
-  }
-});
+
+// Set up Express middleware
+app.use(express.static(path.join(import.meta.dir, '..'))); // Serve static files from parent directory
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Try different ports if default is in use
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const MAX_PORT_ATTEMPTS = 10;
 const users = new Map<string, User>(); // Store user data: socket.id -> { username, id }
-
-// Middleware
-app.use(express.static(join(__dirname, '..'))); // Serve static files from parent directory
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser(process.env.COOKIE_SECRET));
 
 // Routes
 app.get('/', (req, res) => {
-  res.sendFile(join(__dirname, 'index.html'));
+  res.sendFile(path.join(import.meta.dir, '..', 'dist', 'index.html'));
 });
 
 // Generate a username if none exists
@@ -65,10 +49,9 @@ app.get('/api/user', (req, res) => {
     userId = uuidv4();
     username = `User-${userId.substring(0, 5)}`;
     
-    // Set cookies for 30 days (or use value from env)
-    const maxAge = parseInt(process.env.COOKIE_MAX_AGE || '2592000000', 10);
-    res.cookie('userId', userId, { maxAge });
-    res.cookie('username', username, { maxAge });
+    // Set cookies for 30 days
+    res.cookie('userId', userId, { maxAge: 30 * 24 * 60 * 60 * 1000 });
+    res.cookie('username', username, { maxAge: 30 * 24 * 60 * 60 * 1000 });
   }
   
   res.json({ userId, username });
@@ -78,6 +61,19 @@ app.get('/api/user', (req, res) => {
 app.get('/api/messages', (req, res) => {
   res.setHeader('Content-Type', 'text/html');
   res.end(''); // Initially empty, will be populated via WebSockets
+});
+
+// Create server instances
+const server = app.listen(PORT, () => {
+  console.log(`🦊 Server started on http://localhost:${PORT}`);
+});
+
+// Initialize Socket.io
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: process.env.ALLOWED_ORIGINS || '*',
+    methods: ['GET', 'POST']
+  }
 });
 
 // WebSocket handlers
@@ -113,7 +109,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle typing indicators
-  socket.on('typing', (data: { userId: string, username: string }) => {
+  socket.on('typing', (data: { username: string; isTyping: boolean }) => {
     socket.broadcast.emit('typing', data);
   });
 
@@ -125,35 +121,11 @@ io.on('connection', (socket) => {
       socket.broadcast.emit('user-left', {
         message: `${user.username} has left the chat`,
         timestamp: new Date().toISOString()
-      } as NotificationData);
+      });
       users.delete(socket.id);
-    } else {
-      console.log('Unknown client disconnected:', socket.id);
     }
   });
 });
 
-// Try to start server on PORT, if fails try PORT+1, PORT+2, etc.
-let currentPort = PORT;
-let attempts = 0;
-
-function startServer(port: number): void {
-  httpServer.listen(port)
-    .on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE' && attempts < MAX_PORT_ATTEMPTS) {
-        console.log(`Port ${port} is in use, trying ${port + 1}`);
-        attempts++;
-        startServer(port + 1);
-      } else {
-        console.error('Failed to start server:', err.message);
-        process.exit(1);
-      }
-    })
-    .on('listening', () => {
-      console.log(`Server running on http://localhost:${port}`);
-    });
-}
-
-startServer(currentPort);
-
-export { app, httpServer, io }; // Export for testing
+// Export for testing
+export { app, server, io };

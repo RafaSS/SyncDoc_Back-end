@@ -1,6 +1,6 @@
 # SyncDoc Chat
 
-A real-time chat application built with Express, Socket.IO, and htmx.
+A real-time chat application built with Bun, Express, and Socket.IO.
 
 ## Prerequisites
 
@@ -13,12 +13,18 @@ A real-time chat application built with Express, Socket.IO, and htmx.
 bun install
 ```
 
-2. Start the server:
+2. Start the development server:
 ```bash
+bun run dev
+```
+
+3. Or build and start the production server:
+```bash
+bun run build
 bun run start
 ```
 
-3. Open your browser and navigate to `http://localhost:3000`
+4. Open your browser and navigate to `http://localhost:3000`
 
 ## Features
 
@@ -30,12 +36,24 @@ bun run start
 - User join/leave notifications
 - Typing indicators
 
+## Development
+
+- Run tests:
+```bash
+bun test
+```
+
+- Lint your code:
+```bash
+bun run lint
+```
+
 ## How it works
 
 The application uses:
+- Bun as the JavaScript runtime
 - Express for serving static files and handling HTTP requests
 - Socket.IO for real-time bidirectional communication
-- htmx for AJAX requests and enhanced interactivity
 - UUID for generating unique user IDs
 - Cookies to persist user identity between sessions
 
@@ -43,10 +61,10 @@ User messages are displayed differently based on whether they are from the curre
 
 ## Technologies Used
 
+- Bun
 - Express.js
 - Socket.IO
-- htmx
+- TypeScript
+- ESLint for code quality
 - HTML5/CSS3
-- JavaScript (ES6+)
 - UUID
-- Cookie-Parser

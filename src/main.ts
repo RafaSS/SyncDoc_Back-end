@@ -5,16 +5,19 @@ interface User {
 }
 
 interface MessageData {
-  type: 'self' | 'other' | 'system';
+  id?: string;
+  userId?: string;
   username?: string;
-  message: string;
-  timestamp?: Date;
+  text?: string;
+  message?: string;
+  timestamp?: string;
+  type?: 'self' | 'other' | 'system';
 }
 
 // State
 let currentUser: User = { userId: null, username: null };
 let socket: any; // Socket.io doesn't have good TypeScript support in the client
-let lastTypingTime: number;
+let lastTypingTime = 0;
 let typingTimeout: ReturnType<typeof setTimeout>;
 
 // Connect to Socket.IO after getting user info
@@ -53,70 +56,65 @@ async function initializeApp(): Promise<void> {
       });
     });
     
+    socket.on('user-joined', (data: MessageData) => {
+      appendMessage({
+        type: 'system',
+        message: data.message || 'A user has joined'
+      });
+    });
+    
+    socket.on('user-left', (data: MessageData) => {
+      appendMessage({
+        type: 'system',
+        message: data.message || 'A user has left'
+      });
+    });
+    
     // Handle incoming messages
-    socket.on('message', (data: any) => {
+    socket.on('message', (data: MessageData) => {
       console.log('Received message:', data);
+      
+      // Check if this is a message from the current user
+      const messageType = data.userId === currentUser.userId ? 'self' : 'other';
+      
       appendMessage({
-        type: data.userId === currentUser.userId ? 'self' : 'other',
+        type: messageType,
         username: data.username,
-        message: data.text,
-        timestamp: new Date(data.timestamp)
-      });
-    });
-    
-    // Handle user joined notifications
-    socket.on('user-joined', (data: any) => {
-      console.log('User joined:', data);
-      appendMessage({
-        type: 'system',
-        message: data.message,
-        timestamp: new Date(data.timestamp)
-      });
-    });
-    
-    // Handle user left notifications
-    socket.on('user-left', (data: any) => {
-      console.log('User left:', data);
-      appendMessage({
-        type: 'system',
-        message: data.message,
-        timestamp: new Date(data.timestamp)
+        message: data.text || '',
+        timestamp: data.timestamp
       });
     });
     
     // Handle typing indicators
-    socket.on('typing', (data: any) => {
-      if (data.userId !== currentUser.userId) {
-        const typingIndicator = document.getElementById('typing-indicator');
-        if (typingIndicator) {
-          typingIndicator.textContent = `${data.username} is typing...`;
-          clearTimeout(typingTimeout);
-          typingTimeout = setTimeout(() => {
-            if (typingIndicator) {
-              typingIndicator.textContent = '';
-            }
-          }, 3000);
-        }
+    socket.on('typing', (data: { username: string; isTyping: boolean }) => {
+      const typingIndicator = document.getElementById('typing-indicator');
+      if (!typingIndicator) return;
+      
+      if (data.isTyping) {
+        typingIndicator.textContent = `${data.username} is typing...`;
+        typingIndicator.classList.remove('hidden');
+      } else {
+        typingIndicator.classList.add('hidden');
       }
     });
-
-    // Set up form submission event
+    
+    // Set up form submission handler
     const messageForm = document.getElementById('message-form') as HTMLFormElement;
     if (messageForm) {
       messageForm.addEventListener('submit', sendMessage);
     }
     
-    // Set up typing event
+    // Set up typing indicator
     const messageInput = document.getElementById('message-input') as HTMLInputElement;
     if (messageInput) {
-      messageInput.addEventListener('keydown', handleTyping);
+      messageInput.addEventListener('input', handleTyping);
     }
     
   } catch (error) {
     console.error('Error initializing app:', error);
     appendMessage({
       type: 'system',
-      message: 'Error connecting to server: ' + (error instanceof Error ? error.message : String(error))
+      message: 'Failed to connect to server'
     });
   }
 }
@@ -124,37 +122,49 @@ async function initializeApp(): Promise<void> {
 // Handle sending messages
 function sendMessage(event: Event): void {
   event.preventDefault();
-  const messageInput = document.getElementById('message-input') as HTMLInputElement;
-  if (!messageInput || !messageInput.value.trim()) return;
   
-  if (socket && socket.connected) {
+  const input = document.getElementById('message-input') as HTMLInputElement;
+  const message = input.value.trim();
+  
+  if (message) {
     // Send message to server
-    socket.emit('message', messageInput.value);
+    socket.emit('message', message);
     
-    // Clear input field
-    messageInput.value = '';
-    messageInput.focus();
-  } else {
-    appendMessage({
-      type: 'system',
-      message: 'Cannot send message: not connected to server'
+    // Clear input
+    input.value = '';
+    
+    // Stop typing indicator
+    socket.emit('typing', { 
+      username: currentUser.username,
+      isTyping: false 
     });
   }
 }
 
 // Handle typing indicator
 function handleTyping(): void {
-  if (!socket || !socket.connected || !currentUser.userId) return;
+  if (!socket) return;
   
-  const now = new Date().getTime();
-  
-  if (!lastTypingTime || now - lastTypingTime > 2000) {
-    socket.emit('typing', {
-      userId: currentUser.userId,
-      username: currentUser.username
+  // If user is typing, send the "typing" event
+  const now = Date.now();
+  if (!lastTypingTime || now - lastTypingTime > 3000) {
+    socket.emit('typing', { 
+      username: currentUser.username,
+      isTyping: true 
     });
     lastTypingTime = now;
   }
+  
+  // Clear previous timeout
+  clearTimeout(typingTimeout);
+  
+  // Set a timeout to stop typing indicator after 3 seconds of inactivity
+  typingTimeout = setTimeout(() => {
+    socket.emit('typing', { 
+      username: currentUser.username,
+      isTyping: false 
+    });
+  }, 3000);
 }
 
 // Append a message to the messages container
@@ -163,26 +173,40 @@ function appendMessage(data: MessageData): void {
   if (!messagesContainer) return;
   
   const messageElement = document.createElement('div');
-  messageElement.className = `message message-${data.type}`;
+  messageElement.classList.add('message');
   
-  let messageHTML = '';
-  
-  if (data.type !== 'system') {
-    // Add username and timestamp for normal messages
-    messageHTML += '<div class="message-meta">';
-    messageHTML += `<span class="message-username">${data.username || 'Unknown'}</span>`;
-    
-    if (data.timestamp) {
-      messageHTML += `<span class="message-time">${formatTime(data.timestamp)}</span>`;
-    }
-    
-    messageHTML += '</div>';
+  // Add appropriate classes based on message type
+  if (data.type === 'self') {
+    messageElement.classList.add('self-message');
+  } else if (data.type === 'other') {
+    messageElement.classList.add('other-message');
+  } else if (data.type === 'system') {
+    messageElement.classList.add('system-message');
   }
   
-  // Add message content
-  messageHTML += `<div class="message-content">${data.message}</div>`;
+  let messageContent = '';
   
-  messageElement.innerHTML = messageHTML;
+  if (data.type === 'system') {
+    messageContent = `<div class="message-content">${data.message}</div>`;
+  } else {
+    let timeDisplay = '';
+    if (data.timestamp) {
+      const messageDate = new Date(data.timestamp);
+      timeDisplay = `<span class="message-time">${formatTime(messageDate)}</span>`;
+    }
+    
+    const usernameDisplay = data.type === 'other' && data.username 
+      ? `<div class="message-username">${data.username}</div>` 
+      : '';
+    
+    messageContent = `
+      ${usernameDisplay}
+      <div class="message-content">${data.message}</div>
+      ${timeDisplay}
+    `;
+  }
+  
+  messageElement.innerHTML = messageContent;
   messagesContainer.appendChild(messageElement);
   
   // Scroll to bottom
@@ -191,7 +215,7 @@ function appendMessage(data: MessageData): void {
 
 // Format a timestamp into a readable time
 function formatTime(timestamp: Date): string {
-  return timestamp.toLocaleTimeString('en-US', {
+  return timestamp.toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit'
   });
