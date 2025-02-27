@@ -1,34 +1,36 @@
 {
-  "name": "bun-websocket-demo",
+  "name": "syncdoc",
   "version": "1.0.0",
-  "description": "Simple WebSocket server using Bun and Socket.IO",
-  "main": "src/server.ts",
-  "type": "module",
+  "description": "A real-time collaborative document editing application",
+  "main": "src/app.ts",
   "scripts": {
-    "build": "bun build ./src/server.ts --outdir ./dist --target bun",
-    "build:css": "bun run ./src/build-css.ts",
-    "start": "bun run ./dist/server.js",
-    "dev": "bun --hot run ./src/server.ts",
-    "test": "bun test",
-    "lint": "bun run eslint src/**/*.ts --fix"
+    "start": "bun src/app.ts",
+    "dev": "bun --watch src/app.ts",
+    "build": "bun build src/app.ts --outdir dist",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "socket.io": "^4.7.2",
-    "cookie-parser": "^1.4.6",
-    "uuid": "^9.0.1",
-    "dotenv": "^16.3.1"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/cookie-parser": "^1.4.6",
-    "@types/express": "^4.17.21",
-    "@types/uuid": "^9.0.7",
-    "@typescript-eslint/eslint-plugin": "^8.25.0",
-    "@typescript-eslint/parser": "^8.25.0",
-    "eslint": "^9.21.0",
-    "globals": "^16.0.0",
+    "@types/cookie-parser": "^1.4.3",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.3",
+    "@types/node": "^20.4.5",
+    "@types/socket.io-client": "^1.4.21",
+    "@types/uuid": "^9.0.2",
+    "@typescript-eslint/eslint-plugin": "^6.2.0",
+    "@typescript-eslint/parser": "^6.2.0",
+    "eslint": "^8.46.0",
+    "jest": "^29.6.2",
     "socket.io-client": "^4.7.2",
-    "typescript": "^5.3.3"
+    "supertest": "^6.3.3",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.1.6"
   }
 }
