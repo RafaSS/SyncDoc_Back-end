@@ -77,4 +77,5 @@ describe('Document Management', () => {
     expect(Object.keys(documents[id].users).length).toBe(1);
     expect(documents[id].users['socket-id']).toBe(userId);
   });
+
 });

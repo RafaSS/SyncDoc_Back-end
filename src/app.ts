@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import dotenv from 'dotenv';
+import * as http from 'http';
 
 // Load environment variables
 dotenv.config();
@@ -28,32 +29,16 @@ let io: any = null;
 const startServer = () => {
   if (server) return; // Server already running
   
-  server = Bun.serve({
-    port: socketPort,
-    fetch(req, server) {
-      // Handle WebSocket connections
-      if (server.upgrade(req)) {
-        return; // Return if successful WebSocket upgrade
-      }
-      return new Response("Socket.IO server", { status: 200 });
-    },
-    websocket: {
-      message(ws, message) {
-        // Handle WebSocket messages if needed
-      },
-      open(ws) {
-        // Handle WebSocket open events if needed
-      },
-      close(ws, code, message) {
-        // Handle WebSocket close events if needed
-      },
-    }
+  // Create HTTP server instead of using Bun.serve directly
+  server = http.createServer();
+  
+  // Start the server
+  server.listen(socketPort, () => {
+    console.log(`Socket.IO server running at http://localhost:${socketPort}`);
   });
 
-  console.log(`Server running at http://localhost:${socketPort}`);
-
   // Create Socket.IO server with CORS configuration
-  io = new Server(server.server, {
+  io = new Server(server, {
     cors: {
       origin: process.env.ALLOWED_ORIGINS || '*',
       methods: ['GET', 'POST'],

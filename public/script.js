@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Connect to Socket.IO server
-        socket = io();
+        socket = io('http://localhost:3000');
 
         // Socket event handlers
         setupSocketHandlers();
