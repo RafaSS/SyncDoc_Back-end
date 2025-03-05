@@ -80,7 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         socket.on('text-change', (delta, userId) => {
-            quill.updateContents(JSON.parse(delta));
+            console.log('Text change', JSON.parse(delta), userId);
+            quill.updateContents(delta);
         });
 
         socket.on('user-joined', (socketId, userName) => {
@@ -125,6 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle text changes
         quill.on('text-change', (delta, oldDelta, source) => {
             if (source === 'user') {
+                console.log('Text change', delta, oldDelta, source);
                 const contents = JSON.stringify(quill.getContents());
                 socket.emit('text-change', currentDocumentId, contents, source);
             }

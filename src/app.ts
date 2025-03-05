@@ -28,10 +28,10 @@ let io: any = null;
 // Only start the server if it's not already running (prevents test conflicts)
 const startServer = () => {
   if (server) return; // Server already running
-  
+
   // Create HTTP server instead of using Bun.serve directly
   server = http.createServer();
-  
+
   // Start the server
   server.listen(socketPort, () => {
     console.log(`Socket.IO server running at http://localhost:${socketPort}`);
@@ -63,7 +63,7 @@ const setupSocketHandlers = () => {
 
   io.on('connection', (socket) => {
     console.log('New user connected:', socket.id);
-    
+
     // Handle joining a document
     socket.on('join-document', (documentId: string, userId: string) => {
       // If the document doesn't exist, create it
@@ -73,60 +73,60 @@ const setupSocketHandlers = () => {
           users: {}
         };
       }
-      
+
       // Add user to the document
       documents[documentId].users[socket.id] = userId || 'Anonymous';
-      
+
       // Join the document room
       socket.join(documentId);
-      
+
       // Send the current document content to the user
       socket.emit('load-document', documents[documentId].content);
-      
+
       // Notify others that a user has joined
       io.to(documentId).emit('user-joined', socket.id, documents[documentId].users[socket.id]);
-      
+
       // Send the list of users in the document
       io.to(documentId).emit('user-list', documents[documentId].users);
-      
+
       console.log(`User ${documents[documentId].users[socket.id]} joined document ${documentId}`);
     });
-    
+
     // Handle text changes
     socket.on('text-change', (documentId: string, delta: any, source: string) => {
       if (source !== 'user') return;
-      
+
       // Update the document content
       documents[documentId].content = delta;
-      
+
       // Broadcast the change to all other clients in the room
       socket.to(documentId).emit('text-change', delta, socket.id);
-      
+
       console.log(`Document ${documentId} updated by ${documents[documentId]?.users[socket.id] || 'unknown user'}`);
     });
-    
+
     // Handle cursor movement
     socket.on('cursor-move', (documentId: string, cursorPosition: any) => {
       // Broadcast the cursor position to all other clients in the room
       socket.to(documentId).emit('cursor-move', socket.id, cursorPosition);
     });
-    
+
     // Handle disconnect
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id);
-      
+
       // Remove user from all documents
       Object.keys(documents).forEach(documentId => {
         if (documents[documentId].users[socket.id]) {
           const userName = documents[documentId].users[socket.id];
           delete documents[documentId].users[socket.id];
-          
+
           // Notify others that a user has left
           io.to(documentId).emit('user-left', socket.id, userName);
-          
+
           // Update the user list
           io.to(documentId).emit('user-list', documents[documentId].users);
-          
+
           console.log(`User ${userName} left document ${documentId}`);
         }
       });
@@ -151,7 +151,7 @@ app.get('/api/documents', (req, res) => {
     id,
     userCount: Object.keys(documents[id].users).length
   }));
-  
+
   res.json(documentList);
 });
 
@@ -161,7 +161,7 @@ app.post('/api/documents', (req, res) => {
     content: '',
     users: {}
   };
-  
+
   res.json({ id });
 });
 
@@ -170,7 +170,7 @@ let expressServer: any = null;
 
 const startExpressServer = () => {
   if (expressServer) return; // Server already running
-  
+
   expressServer = app.listen(expressPort, () => {
     console.log(`Express server running at http://localhost:${expressPort}`);
   });
@@ -183,13 +183,13 @@ if (!isTest) {
 }
 
 // Export both app and server for testing
-export { 
-  app, 
-  server, 
-  io, 
-  documents, 
-  startServer, 
-  startExpressServer, 
-  socketPort, 
-  expressPort 
+export {
+  app,
+  server,
+  io,
+  documents,
+  startServer,
+  startExpressServer,
+  socketPort,
+  expressPort
 };
