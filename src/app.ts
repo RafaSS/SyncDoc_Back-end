@@ -52,13 +52,19 @@ const startServer = () => {
 // In-memory document store - in a production app, you'd use a database
 const documents: Record<
   string,
-  { title: string; content: string; users: Record<string, string> }
+  {
+    title: string;
+    content: string;
+    users: Record<string, string>;
+    delta: string;
+  }
 > = {
   welcome: {
     title: "Welcome",
     content:
       "Welcome to SyncDoc! This is a collaborative document editor. Start typing to edit the document.",
     users: {},
+    delta: "",
   },
 };
 
@@ -77,6 +83,7 @@ const setupSocketHandlers = () => {
           title: "Untitled Document",
           content: "",
           users: {},
+          delta: "",
         };
       }
 
@@ -109,14 +116,16 @@ const setupSocketHandlers = () => {
     // Handle text changes
     socket.on(
       "text-change",
-      (documentId: string, delta: any, source: string) => {
+      (documentId: string, delta: any, source: string, content: string) => {
         if (source !== "user") return;
 
         // Update the document content
-        documents[documentId].content = delta;
+        console.log(documents[documentId].content);
+        documents[documentId].content = content;
+        documents[documentId].delta = delta;
 
         // Broadcast the change to all other clients in the room
-        socket.to(documentId).emit("text-change", delta, socket.id);
+        socket.to(documentId).emit("text-change", delta, socket.id, content);
 
         console.log(
           `Document ${documentId} updated by ${
@@ -190,6 +199,7 @@ app.post("/api/documents", (req, res) => {
     title: "Untitled Document",
     content: "",
     users: {},
+    delta: "",
   };
 
   res.json({ id });

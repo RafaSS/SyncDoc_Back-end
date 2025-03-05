@@ -73,6 +73,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
+      delta: "",
     };
 
     expect(documents[id]).toBeDefined();
@@ -87,6 +88,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "",
       users: {},
+      delta: "",
     };
 
     documents[id].users["socket-id"] = userId;
@@ -107,6 +109,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
+      delta: "",
     };
   });
 
@@ -126,6 +129,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
+      delta: "",
     };
   });
 
@@ -135,6 +139,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
+      delta: "",
     };
   });
 });

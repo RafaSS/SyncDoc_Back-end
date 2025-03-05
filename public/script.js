@@ -66,6 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Rejoin document if we were previously connected
       if (currentDocumentId) {
+        console.log("Rejoining document:", currentDocumentId);
         joinDocument(currentDocumentId);
       }
     });
@@ -76,11 +77,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     socket.on("load-document", (content) => {
+      console.log("Loading document:", content);
       quill.setContents(content ? JSON.parse(content) : { ops: [] });
       quill.enable();
     });
 
-    socket.on("text-change", (delta, userId) => {
+    socket.on("text-change", (delta, userId, content) => {
       quill.updateContents(JSON.parse(delta));
     });
 
@@ -132,8 +134,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Handle text changes
     quill.on("text-change", (delta, oldDelta, source) => {
       if (source === "user") {
-        const contents = JSON.stringify(delta);
-        socket.emit("text-change", currentDocumentId, contents, source);
+        const newDelta = JSON.stringify(delta);
+        console.log("oldDelta:", oldDelta , " - otherDelta:", JSON.stringify(quill.getContents()));
+        const contents = JSON.stringify(quill.getContents());
+        console.log("Sending text change:", delta);
+        socket.emit("text-change", currentDocumentId, newDelta, source, contents);
       }
     });
 
@@ -206,6 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
     socket.emit("join-document", documentId, userId);
     quill.enable(false); // Disable editor until document loads
     userStatus.textContent = `Editing: ${documentId}`;
+    document.title = `${documentTitle.value} - SyncDoc`;
   }
 
   // Create a new document
