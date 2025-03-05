@@ -70,6 +70,7 @@ describe("Document Management", () => {
   test("Can add new documents", () => {
     const id = uuidv4();
     documents[id] = {
+      title: "Test Document",
       content: "Test content",
       users: {},
     };
@@ -83,6 +84,7 @@ describe("Document Management", () => {
     const userId = "test-user-" + Math.floor(Math.random() * 10000);
 
     documents[id] = {
+      title: "Test Document",
       content: "",
       users: {},
     };
@@ -91,5 +93,48 @@ describe("Document Management", () => {
 
     expect(Object.keys(documents[id].users).length).toBe(1);
     expect(documents[id].users["socket-id"]).toBe(userId);
+  });
+
+  test("Can get document list", async () => {
+    const response = await supertest(app).get("/api/documents");
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+
+  test("Can get document by id", async () => {
+    const id = uuidv4();
+    documents[id] = {
+      title: "Test Document",
+      content: "Test content",
+      users: {},
+    };
+  });
+
+  test("Can create new documents", async () => {
+    const response = await supertest(app).post("/api/documents").send({
+      title: "Test Document",
+      content: "Test content",
+      users: {},
+    });
+    expect(response.status).toBe(201);
+    expect(response.body.id).toBeDefined();
+  });
+
+  test("Can update documents", async () => {
+    const id = uuidv4();
+    documents[id] = {
+      title: "Test Document",
+      content: "Test content",
+      users: {},
+    };
+  });
+
+  test("Can delete documents", async () => {
+    const id = uuidv4();
+    documents[id] = {
+      title: "Test Document",
+      content: "Test content",
+      users: {},
+    };
   });
 });

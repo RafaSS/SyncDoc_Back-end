@@ -126,6 +126,7 @@ const setupSocketHandlers = () => {
       }
     );
 
+    // Handle title changes
     socket.on("title-change", (documentId: string, title: string) => {
       documents[documentId].title = title;
 
