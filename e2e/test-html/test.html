@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SyncDoc Test</title>
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+  <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+  <style>
+    .ql-editor { height: 300px; }
+    .editor-container { margin: 20px; }
+    #user-list { margin: 20px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="editor-container">
+      <div id="editor"></div>
+    </div>
+    <div id="user-list"></div>
+  </div>
+  <script>
+    const socket = io('http://localhost:3002');
+    const quill = new Quill('#editor', {
+      theme: 'snow'
+    });
+    
+    // Generate a consistent document ID for testing
+    const documentId = 'test-document-123';
+    const userName = 'Test User ' + Math.floor(Math.random() * 100);
+    
+    // Join document
+    socket.emit('join-document', documentId, userName);
+    
+    // Listen for text changes from the editor
+    quill.on('text-change', function(delta, oldDelta, source) {
+      if (source === 'user') {
+        socket.emit('text-change', documentId, delta, source, quill.root.innerHTML);
+        console.log('Text change emitted:', delta);
+      }
+    });
+    
+    // Listen for text changes from the server
+    socket.on('text-change', function(delta) {
+      quill.updateContents(delta);
+      console.log('Text change received:', delta);
+    });
+    
+    // Listen for user list updates
+    socket.on('user-list', function(users) {
+      const userList = document.getElementById('user-list');
+      userList.innerHTML = '<h3>Connected Users:</h3>';
+      Object.values(users).forEach(user => {
+        const userItem = document.createElement('div');
+        userItem.textContent = user;
+        userList.appendChild(userItem);
+      });
+      console.log('Updated user list:', users);
+    });
+
+    // Debug events
+    socket.on('connect', () => {
+      console.log('Socket connected with ID:', socket.id);
+    });
+    
+    socket.on('disconnect', () => {
+      console.log('Socket disconnected');
+    });
+    
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+    });
+    
+    // Debug function to inspect document state
+    window.getDocumentText = function() {
+      return quill.root.innerHTML;
+    };
+  </script>
+</body>
+</html>

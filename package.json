@@ -9,6 +9,10 @@
     "dev": "bun --watch src/app.ts",
     "build": "bun build src/app.ts --outdir dist",
     "test": "bun test",
+    "test:socket": "node run-tests.js socket",
+    "test:e2e": "node run-tests.js e2e",
+    "test:all": "node run-tests.js all",
+    "test:debug": "cross-env NODE_ENV=test DEBUG=true bun test",
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
@@ -26,7 +30,9 @@
     "@typescript-eslint/eslint-plugin": "^6.2.0",
     "@typescript-eslint/parser": "^6.2.0",
     "bun-types": "^1.2.4",
+    "cross-env": "^7.0.3",
     "eslint": "^8.46.0",
+    "puppeteer": "^22.0.0",
     "socket.io-client": "^4.7.2",
     "supertest": "^7.0.0",
     "typescript": "^5.1.6"

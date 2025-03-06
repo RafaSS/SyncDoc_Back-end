@@ -12,7 +12,7 @@ import {
   afterEach,
 } from "bun:test";
 import {
-  app,
+  expressApp as app,
   documents,
   startServer,
   startExpressServer,
@@ -40,7 +40,10 @@ describe("SyncDoc API", () => {
 
   // Close the server after tests
   afterAll(() => {
-    // Close any open connections
+    // Clean up any test documents
+    if (documents[TEST_DOC_ID]) {
+      delete documents[TEST_DOC_ID];
+    }
   });
 
   // Basic API tests
@@ -59,6 +62,59 @@ describe("SyncDoc API", () => {
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("id");
     expect(typeof response.body.id).toBe("string");
+  });
+
+  test("GET /api/documents/:id returns document by id", async () => {
+    // Create a test document
+    const id = uuidv4();
+    documents[id] = {
+      title: "Test Document",
+      content: "Test content",
+      users: {},
+      deltas: [],
+    };
+
+    const response = await supertest(app).get(`/api/documents/${id}`);
+    expect(response.status).toBe(200);
+    expect(response.body.id).toBe(id);
+    expect(response.body.title).toBe("Test Document");
+    expect(response.body.content).toBe("Test content");
+    
+    // Clean up
+    delete documents[id];
+  });
+
+  test("GET /api/documents/:id/history returns document history", async () => {
+    // Create a test document with deltas
+    const id = uuidv4();
+    documents[id] = {
+      title: "Test Document",
+      content: "Test content",
+      users: {},
+      deltas: [{
+        delta: { ops: [{ insert: "Test content" }] },
+        userId: "test-user",
+        userName: "Test User",
+        timestamp: Date.now()
+      }],
+    };
+
+    const response = await supertest(app).get(`/api/documents/${id}/history`);
+    expect(response.status).toBe(200);
+    expect(response.body.id).toBe(id);
+    expect(response.body.title).toBe("Test Document");
+    expect(Array.isArray(response.body.deltas)).toBe(true);
+    expect(response.body.deltas.length).toBe(1);
+    
+    // Clean up
+    delete documents[id];
+  });
+
+  test("GET /api/documents/:id returns 404 for non-existent document", async () => {
+    const nonExistentId = "non-existent-id";
+    const response = await supertest(app).get(`/api/documents/${nonExistentId}`);
+    expect(response.status).toBe(404);
+    expect(response.body.error).toBeDefined();
   });
 });
 
@@ -79,6 +135,9 @@ describe("Document Management", () => {
 
     expect(documents[id]).toBeDefined();
     expect(documents[id].content).toBe("Test content");
+    
+    // Clean up
+    delete documents[id];
   });
 
   test("Can add users to documents", () => {
@@ -96,25 +155,12 @@ describe("Document Management", () => {
 
     expect(Object.keys(documents[id].users).length).toBe(1);
     expect(documents[id].users["socket-id"]).toBe(userId);
+    
+    // Clean up
+    delete documents[id];
   });
 
-  test("Can get document list", async () => {
-    const response = await supertest(app).get("/api/documents");
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-  });
-
-  test("Can get document by id", async () => {
-    const id = uuidv4();
-    documents[id] = {
-      title: "Test Document",
-      content: "Test content",
-      users: {},
-      deltas: [],
-    };
-  });
-
-  test("Can create new documents", async () => {
+  test("Can create new documents via API", async () => {
     const response = await supertest(app).post("/api/documents").send({
       title: "Test Document",
       content: "Test content",
@@ -122,25 +168,10 @@ describe("Document Management", () => {
     });
     expect(response.status).toBe(200);
     expect(response.body.id).toBeDefined();
-  });
-
-  test("Can update documents", async () => {
-    const id = uuidv4();
-    documents[id] = {
-      title: "Test Document",
-      content: "Test content",
-      users: {},
-      deltas: [],
-    };
-  });
-
-  test("Can delete documents", async () => {
-    const id = uuidv4();
-    documents[id] = {
-      title: "Test Document",
-      content: "Test content",
-      users: {},
-      deltas: [],
-    };
+    
+    // Clean up
+    if (response.body.id) {
+      delete documents[response.body.id];
+    }
   });
 });

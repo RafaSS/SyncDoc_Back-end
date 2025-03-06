@@ -11,16 +11,29 @@ import dotenv from "dotenv";
 import * as http from "http";
 import { Document, DocumentsCollection, Delta, DeltaChange } from "./types";
 
-dotenv.config();
+// Load the appropriate .env file based on the environment
+const isTest = process.env.NODE_ENV === "test";
+if (isTest) {
+  console.log("Loading test environment configuration");
+  dotenv.config({ path: '.env.test' });
+} else {
+  dotenv.config();
+}
 
 const app = express();
 
-const isTest = process.env.NODE_ENV === "test";
-const socketPort = isTest ? 3002 : process.env.PORT || 3000;
-const expressPort = isTest ? 3003 : process.env.EXPRESS_PORT || 3001;
+// Parse ports as numbers to avoid type issues
+const socketPort = Number(process.env.SOCKET_PORT) || (isTest ? 3002 : 3000);
+const expressPort = Number(process.env.EXPRESS_PORT) || (isTest ? 3003 : 3001);
+const corsOrigin = process.env.CORS_ORIGIN || (isTest ? `http://localhost:${expressPort}` : "*");
 
-let server: any = null;
-let io: any = null;
+console.log(`Environment: ${isTest ? 'test' : 'production'}`);
+console.log(`Socket port: ${socketPort}, Express port: ${expressPort}`);
+console.log(`CORS origin: ${corsOrigin}`);
+
+let server: http.Server | null = null;
+let io: Server | null = null;
+let expressServer: http.Server | null = null;
 
 const startServer = () => {
   if (server) return;
@@ -33,7 +46,7 @@ const startServer = () => {
 
   io = new Server(server, {
     cors: {
-      origin: process.env.ALLOWED_ORIGINS || "*",
+      origin: corsOrigin,
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -144,6 +157,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(import.meta.dir, "../public/index.html"));
 });
 
+// API Routes
 app.get("/api/documents", (req, res) => {
   const documentList = Object.keys(documents).map((id) => ({
     id,
@@ -179,7 +193,6 @@ app.get("/api/documents/:id/history", (req, res) => {
   }
   
   // Return the deltas history for the document
-  // This could be paginated in a real application to handle large histories
   res.json({
     id,
     title: documents[id].title,
@@ -199,28 +212,32 @@ app.post("/api/documents", (req, res) => {
   res.json({ id });
 });
 
-let expressServer: any = null;
+// Clean up server variables with proper types
 
 const startExpressServer = () => {
   if (expressServer) return;
-
+  
   expressServer = app.listen(expressPort, () => {
     console.log(`Express server running at http://localhost:${expressPort}`);
   });
+  
+  return expressServer;
 };
 
+// In non-test mode, start both servers automatically
 if (!isTest) {
   startServer();
   startExpressServer();
 }
 
+// Export the necessary modules and variables
 export {
-  app,
-  server,
-  io,
-  documents,
-  startServer,
-  startExpressServer,
   socketPort,
   expressPort,
+  startServer,
+  startExpressServer,
+  server,
+  io,
+  app as expressApp,
+  documents
 };
