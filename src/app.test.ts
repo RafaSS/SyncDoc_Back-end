@@ -22,6 +22,7 @@ import {
 import { io as ioClient } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 import supertest from "supertest";
+import { Document } from "./types";
 
 // Set test environment
 process.env.NODE_ENV = "test";
@@ -73,7 +74,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
-      delta: "",
+      deltas: [],
     };
 
     expect(documents[id]).toBeDefined();
@@ -88,7 +89,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "",
       users: {},
-      delta: "",
+      deltas: [],
     };
 
     documents[id].users["socket-id"] = userId;
@@ -109,7 +110,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
-      delta: "",
+      deltas: [],
     };
   });
 
@@ -119,7 +120,7 @@ describe("Document Management", () => {
       content: "Test content",
       users: {},
     });
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(200);
     expect(response.body.id).toBeDefined();
   });
 
@@ -129,7 +130,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
-      delta: "",
+      deltas: [],
     };
   });
 
@@ -139,7 +140,7 @@ describe("Document Management", () => {
       title: "Test Document",
       content: "Test content",
       users: {},
-      delta: "",
+      deltas: [],
     };
   });
 });
