@@ -15,7 +15,7 @@ import { Document, DocumentsCollection, Delta, DeltaChange } from "./types";
 const isTest = process.env.NODE_ENV === "test";
 if (isTest) {
   console.log("Loading test environment configuration");
-  dotenv.config({ path: '.env.test' });
+  dotenv.config({ path: ".env.test" });
 } else {
   dotenv.config();
 }
@@ -25,14 +25,15 @@ const app = express();
 // Parse ports as numbers to avoid type issues
 const socketPort = Number(process.env.SOCKET_PORT) || (isTest ? 3002 : 3000);
 const expressPort = Number(process.env.EXPRESS_PORT) || (isTest ? 3003 : 3001);
-const corsOrigin = process.env.CORS_ORIGIN || (isTest ? `http://localhost:${expressPort}` : "*");
+const corsOrigin =
+  process.env.CORS_ORIGIN || (isTest ? `http://localhost:${expressPort}` : "*");
 
-console.log(`Environment: ${isTest ? 'test' : 'production'}`);
+console.log(`Environment: ${isTest ? "test" : "production"}`);
 console.log(`Socket port: ${socketPort}, Express port: ${expressPort}`);
 console.log(`CORS origin: ${corsOrigin}`);
 
 let server: http.Server | null = null;
-let io: Server | null = null;
+let io: Server;
 let expressServer: http.Server | null = null;
 
 const startServer = () => {
@@ -58,7 +59,8 @@ const startServer = () => {
 const documents: DocumentsCollection = {
   welcome: {
     title: "Welcome",
-    content: "Welcome to SyncDoc! This is a collaborative document editor. Start typing to edit the document.",
+    content:
+      "Welcome to SyncDoc! This is a collaborative document editor. Start typing to edit the document.",
     users: {},
     deltas: [],
   },
@@ -96,30 +98,41 @@ const setupSocketHandlers = () => {
 
       io.to(documentId).emit("user-list", documents[documentId].users);
 
-      console.log(`User ${documents[documentId].users[socket.id]} joined document ${documentId}`);
+      console.log(
+        `User ${
+          documents[documentId].users[socket.id]
+        } joined document ${documentId}`
+      );
     });
 
-    socket.on("text-change", (documentId: string, delta: Delta, source: string, content: string) => {
-      if (source !== "user") return;
+    socket.on(
+      "text-change",
+      (documentId: string, delta: Delta, source: string, content: string) => {
+        if (source !== "user") return;
 
-      documents[documentId].content = content;
-      
-      // Create a new delta change record
-      const deltaChange: DeltaChange = {
-        delta,
-        userId: socket.id,
-        userName: documents[documentId].users[socket.id] || "Anonymous",
-        timestamp: Date.now(),
-      };
-      
-      // Add the delta to the document's delta array
-      documents[documentId].deltas.push(deltaChange);
+        documents[documentId].content = content;
 
-      // Send the delta directly without needing to stringify/parse on client
-      socket.to(documentId).emit("text-change", delta, socket.id, content);
+        // Create a new delta change record
+        const deltaChange: DeltaChange = {
+          delta,
+          userId: socket.id,
+          userName: documents[documentId].users[socket.id] || "Anonymous",
+          timestamp: Date.now(),
+        };
 
-      console.log(`Document ${documentId} updated by ${documents[documentId]?.users[socket.id] || "unknown user"}`);
-    });
+        // Add the delta to the document's delta array
+        documents[documentId].deltas.push(deltaChange);
+
+        // Send the delta directly without needing to stringify/parse on client
+        socket.to(documentId).emit("text-change", delta, socket.id, content);
+
+        console.log(
+          `Document ${documentId} updated by ${
+            documents[documentId]?.users[socket.id] || "unknown user"
+          }`
+        );
+      }
+    );
 
     socket.on("title-change", (documentId: string, title: string) => {
       documents[documentId].title = title;
@@ -170,33 +183,33 @@ app.get("/api/documents", (req, res) => {
 
 app.get("/api/documents/:id", (req, res) => {
   const { id } = req.params;
-  
+
   if (!documents[id]) {
     return res.status(404).json({ error: "Document not found" });
   }
-  
+
   // Return document without sending all deltas to keep response size manageable
   res.json({
     id,
     title: documents[id].title,
     content: documents[id].content,
     userCount: Object.keys(documents[id].users).length,
-    deltaCount: documents[id].deltas.length
+    deltaCount: documents[id].deltas.length,
   });
 });
 
 app.get("/api/documents/:id/history", (req, res) => {
   const { id } = req.params;
-  
+
   if (!documents[id]) {
     return res.status(404).json({ error: "Document not found" });
   }
-  
+
   // Return the deltas history for the document
   res.json({
     id,
     title: documents[id].title,
-    deltas: documents[id].deltas
+    deltas: documents[id].deltas,
   });
 });
 
@@ -216,11 +229,11 @@ app.post("/api/documents", (req, res) => {
 
 const startExpressServer = () => {
   if (expressServer) return;
-  
+
   expressServer = app.listen(expressPort, () => {
     console.log(`Express server running at http://localhost:${expressPort}`);
   });
-  
+
   return expressServer;
 };
 
@@ -239,5 +252,5 @@ export {
   server,
   io,
   app as expressApp,
-  documents
+  documents,
 };
