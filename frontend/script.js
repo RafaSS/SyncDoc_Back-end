@@ -14,8 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const shareLink = document.getElementById("share-link");
   const copyLinkButton = document.getElementById("copy-link-btn");
 
-  const API_BASE_URL = "http://localhost:3001/api"; // Express server port (configurable)
-  const SOCKET_URL = "http://localhost:3000"; // Socket.IO server port (configurable)
+  // Get configuration from window.SYNCDOC_CONFIG (set in config.js)
+  const API_BASE_URL = window.SYNCDOC_CONFIG?.API_BASE_URL || "http://localhost:3022/api";
+  const SOCKET_URL = window.SYNCDOC_CONFIG?.SOCKET_URL || "http://localhost:3022";
 
   // State variables
   let socket;

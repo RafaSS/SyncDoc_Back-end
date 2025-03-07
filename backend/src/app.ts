@@ -23,15 +23,12 @@ if (isTest) {
 
 const app = express();
 
-// Parse ports as numbers to avoid type issues
-const socketPort = Number(process.env.SOCKET_PORT) || (isTest ? 3002 : 3000);
-const expressPort = Number(process.env.EXPRESS_PORT) || (isTest ? 3003 : 3001);
-const corsOrigin =
-  process.env.CORS_ORIGIN || (isTest ? `http://localhost:${expressPort}` : "*");
+// Get allowed origins from environment variable
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ["*"];
+console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
 
-console.log(`Environment: ${isTest ? "test" : "production"}`);
-console.log(`Socket port: ${socketPort}, Express port: ${expressPort}`);
-console.log(`CORS origin: ${corsOrigin}`);
+// Get port from environment variable or use default
+const PORT = process.env.PORT || 10000;
 
 let server: http.Server | null = null;
 let io: Server;
@@ -40,21 +37,26 @@ let expressServer: http.Server | null = null;
 const startServer = () => {
   if (server) return;
 
-  server = http.createServer();
-
-  server.listen(socketPort, () => {
-    console.log(`Socket.IO server running at http://localhost:${socketPort}`);
-  });
+  // Use the same server for both HTTP and Socket.IO
+  server = http.createServer(app);
 
   io = new Server(server, {
     cors: {
-      origin: corsOrigin,
+      origin: allowedOrigins,
       methods: ["GET", "POST"],
-      credentials: true,
-    },
+      credentials: true
+    }
   });
 
+  // Initialize socket handlers
   setupSocketHandlers();
+
+  // Start the combined server
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+
+  return server;
 };
 
 const documents: DocumentsCollection = {
@@ -169,7 +171,7 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 
 // Enable CORS for all routes
 app.use(cors({
-  origin: corsOrigin,
+  origin: allowedOrigins,
   credentials: true
 }));
 
@@ -228,31 +230,15 @@ app.post("/api/documents", (req, res) => {
   res.json({ id });
 });
 
-// Get port from environment variable or use default
-const PORT = process.env.PORT || 3000;
-
-const startExpressServer = () => {
-  if (expressServer) return;
-
-  expressServer = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-
-  return expressServer;
-};
-
 // In non-test mode, start both servers automatically
 if (!isTest) {
   startServer();
-  startExpressServer();
 }
 
 // Export the necessary modules and variables
 export {
-  socketPort,
-  expressPort,
+  PORT,
   startServer,
-  startExpressServer,
   server,
   io,
   app as expressApp,

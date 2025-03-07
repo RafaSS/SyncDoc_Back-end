@@ -5,9 +5,9 @@
   "main": "src/app.ts",
   "type": "module",
   "scripts": {
-    "start": "bun src/app.ts",
+    "start": "node dist/app.js",
     "dev": "bun --watch src/app.ts",
-    "build": "bun build src/app.ts --outdir dist",
+    "build": "bun build src/app.ts --outdir dist --target node",
     "test": "bun test",
     "test:socket": "bun run-tests.js socket",
     "test:e2e": "bun run-tests.js e2e",
