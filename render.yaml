@@ -5,8 +5,8 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: cd backend && npm install && npm run build
-    startCommand: cd backend && npm start
+    buildCommand: cd backend && bun install && bun run build
+    startCommand: cd backend && bun start
     envVars:
       - key: NODE_ENV
         value: production
@@ -20,12 +20,12 @@ services:
         value: 2592000000
 
   # Frontend Service
-  - type: static
+  - type: web
     name: syncdoc-frontend
-    env: static
+    env: node
     region: oregon
-    buildCommand: cd frontend && npm install
-    staticPublishPath: ./frontend
+    buildCommand: cd frontend && bun install
+    startCommand: cd frontend && bun start
     envVars:
       - key: NODE_ENV
         value: production
