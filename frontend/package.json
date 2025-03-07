@@ -1,0 +1,17 @@
+{
+  "name": "syncdoc-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for SyncDoc collaborative document editing application",
+  "main": "index.html",
+  "scripts": {
+    "start": "serve -s . -p 3000",
+    "dev": "serve -s . -p 3000"
+  },
+  "dependencies": {
+    "serve": "^14.2.1",
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "dotenv": "^16.3.1"
+  }
+}

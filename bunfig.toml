@@ -1,9 +1,0 @@
-[test]
-preload = ["./setup.ts"]
-
-[build]
-outdir = "./dist"
-target = "bun"
-
-[dev]
-watch = true
