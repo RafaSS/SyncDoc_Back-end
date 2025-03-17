@@ -32,13 +32,15 @@ onMounted(async () => {
 });
 
 async function createNewDocument() {
+  console.log('Attempting to create a new document...');
   try {
     const documentId = await documentStore.createNewDocument();
+    console.log('Document created with ID:', documentId);
     if (documentId) {
-      router.push({ name: "editor", params: { id: documentId as string } });
+      router.push({ name: 'editor', params: { id: documentId as string } });
     }
   } catch (error) {
-    console.error("Failed to create new document:", error);
+    console.error('Failed to create new document:', error);
   }
 }
 

@@ -130,6 +130,7 @@ const setupSocketHandlers = () => {
 
     // Authentication middleware for Socket.IO
     socket.use(async ([event, ...args], next) => {
+      console.log("Socket event:", event);
       // Skip auth check during tests
       if (isTest) {
         return next();
@@ -167,6 +168,7 @@ const setupSocketHandlers = () => {
         token: string,
         callback: (error: string | null, data?: any) => void
       ) => {
+        console.log("Authenticating user...");
         try {
           const { data, error } = await supabase.auth.getUser(token);
           if (error || !data.user) {
@@ -182,8 +184,38 @@ const setupSocketHandlers = () => {
       }
     );
 
+    socket.on("test", () => {
+      console.log("Test event received");
+    });
+
+    socket.on(
+      "create-document",
+      async (callback: (documentId: string) => void) => {
+        console.log("Creating new document...");
+        try {
+          // Get authenticated user ID if available
+          const userId = (socket as any).userId;
+          // Create document with optional user ID
+          const result = await documentService.createDocument(
+            "Untitled Document",
+            { ops: [] },
+            userId
+          );
+          callback(result.id);
+        } catch (error) {
+          console.error("Error creating document:", error);
+          callback(
+            error instanceof Error ? error.message : "An error occurred"
+          );
+        }
+      }
+    );
+
     socket.on("join-document", async (documentId: string, userName: string) => {
+      console.log("User joining document:", documentId);
       socket.join(documentId);
+
+      console.log("User joined document:", documentId);
 
       // If authenticated, get the actual user data
       const userId = (socket as any).userId;
@@ -203,11 +235,13 @@ const setupSocketHandlers = () => {
         const result = await documentService.createDocument();
         documentId = result.id;
         document = await documentService.getDocumentById(documentId);
-
+        console.log("Created new document:", documentId);
         // Update room to the new document ID
         socket.leave(documentId);
         socket.join(documentId);
       }
+
+      console.log("Joined document:", documentId);
 
       // Add user to document
       await documentService.addUserToDocument(
@@ -219,9 +253,11 @@ const setupSocketHandlers = () => {
 
       // Get the document content
       if (document && document.content) {
+        console.log("Sending document content:", document.content);
         socket.emit("load-document", document.content);
       } else {
         // If no content exists, send an empty delta
+        console.log("Sending empty document content");
         socket.emit("load-document", JSON.stringify({ ops: [] }));
       }
 

@@ -63,13 +63,16 @@ export class DocumentController {
   };
 
   public createDocument = async (req: Request, res: Response): Promise<void> => {
+    console.log('Create document request received');
     try {
-      // If user is authenticated, use their ID as owner
       const ownerId = req.user?.id;
+      console.log('Owner ID:', ownerId);
       const result = await this.documentService.createDocument(ownerId);
+      console.log('Document created:', result);
       res.status(201).json(result);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      console.error('Error creating document:', errorMessage);
       res.status(500).json({ error: errorMessage });
     }
   };
