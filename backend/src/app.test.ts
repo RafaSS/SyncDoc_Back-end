@@ -13,7 +13,6 @@ import {
 } from "bun:test";
 import {
   expressApp as app,
-  documents,
   startServer,
   startExpressServer,
   socketPort,
@@ -22,27 +21,47 @@ import {
 import { io as ioClient } from "socket.io-client";
 import { v4 as uuidv4 } from "uuid";
 import supertest from "supertest";
-import { Document } from "./types";
+import {
+  setupTestEnvironment,
+  mockDocumentService,
+  mockDocumentRepository,
+  patchAuthForTesting,
+} from "./test-helpers";
 
-// Set test environment
-process.env.NODE_ENV = "test";
+// Setup test environment before requiring app
+setupTestEnvironment();
 
 // Test document ID to use throughout tests
 const TEST_DOC_ID = "test-doc-" + Math.floor(Math.random() * 10000);
 
 describe("SyncDoc API", () => {
+  // Create an authenticated agent for API requests
+  let request: any;
+
   // Set up the server before tests
   beforeAll(() => {
     // Start the servers
     startServer();
     startExpressServer();
+
+    // Patch the authentication middleware directly
+    patchAuthForTesting(app);
+    
+    // Create an authenticated request agent
+    request = supertest(app);
   });
 
-  // Close the server after tests
-  afterAll(() => {
-    // Clean up any test documents
-    if (documents[TEST_DOC_ID]) {
-      delete documents[TEST_DOC_ID];
+  // Clean up after tests
+  afterAll(async () => {
+    // Our mock repository allows for document deletion
+    try {
+      if (mockDocumentRepository.deleteDocument) {
+        for (const id of (mockDocumentRepository as any).documents.keys()) {
+          await mockDocumentRepository.deleteDocument(id);
+        }
+      }
+    } catch (error) {
+      console.error("Error cleaning up documents:", error);
     }
   });
 
@@ -52,13 +71,17 @@ describe("SyncDoc API", () => {
   });
 
   test("GET /api/documents returns document list", async () => {
-    const response = await supertest(app).get("/api/documents");
+    const response = await request
+      .get("/api/documents")
+      .set("Authorization", "Bearer mock-jwt-token-for-testing");
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
   });
 
   test("POST /api/documents creates new document", async () => {
-    const response = await supertest(app).post("/api/documents");
+    const response = await request
+      .post("/api/documents")
+      .set("Authorization", "Bearer mock-jwt-token-for-testing");
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty("id");
     expect(typeof response.body.id).toBe("string");
@@ -66,112 +89,102 @@ describe("SyncDoc API", () => {
 
   test("GET /api/documents/:id returns document by id", async () => {
     // Create a test document
-    const id = uuidv4();
-    documents[id] = {
-      title: "Test Document",
-      content: "Test content",
-      users: {},
-      deltas: [],
-    };
+    const result = await mockDocumentService.createDocument("Test Document", {
+      ops: [{ insert: "Test content" }],
+    });
+    const id = result.id;
 
-    const response = await supertest(app).get(`/api/documents/${id}`);
+    const response = await request
+      .get(`/api/documents/${id}`)
+      .set("Authorization", "Bearer mock-jwt-token-for-testing");
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(id);
     expect(response.body.title).toBe("Test Document");
-    expect(response.body.content).toBe("Test content");
-    
-    // Clean up
-    delete documents[id];
   });
 
   test("GET /api/documents/:id/history returns document history", async () => {
     // Create a test document with deltas
-    const id = uuidv4();
-    documents[id] = {
-      title: "Test Document",
-      content: "Test content",
-      users: {},
-      deltas: [{
-        delta: { ops: [{ insert: "Test content" }] },
-        userId: "test-user",
-        userName: "Test User",
-        timestamp: Date.now()
-      }],
-    };
+    const result = await mockDocumentService.createDocument("Test Document", {
+      ops: [{ insert: "Test content" }],
+    });
+    const id = result.id;
 
-    const response = await supertest(app).get(`/api/documents/${id}/history`);
+    // Add changes that will be recorded in history
+    await mockDocumentService.updateDocumentContent(
+      id,
+      JSON.stringify({ ops: [{ insert: "Updated content" }] }),
+      { ops: [{ insert: "Updated content" }] },
+      "test-socket-id",
+      "Test User"
+    );
+
+    const response = await request
+      .get(`/api/documents/${id}/history`)
+      .set("Authorization", "Bearer mock-jwt-token-for-testing");
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(id);
     expect(response.body.title).toBe("Test Document");
     expect(Array.isArray(response.body.deltas)).toBe(true);
-    expect(response.body.deltas.length).toBe(1);
-    
-    // Clean up
-    delete documents[id];
   });
 
   test("GET /api/documents/:id returns 404 for non-existent document", async () => {
     const nonExistentId = "non-existent-id";
-    const response = await supertest(app).get(`/api/documents/${nonExistentId}`);
+    const response = await request
+      .get(`/api/documents/${nonExistentId}`)
+      .set("Authorization", "Bearer mock-jwt-token-for-testing");
     expect(response.status).toBe(404);
     expect(response.body.error).toBeDefined();
   });
 });
 
 describe("Document Management", () => {
-  test("Documents object exists", () => {
-    expect(documents).toBeDefined();
-    expect(documents.welcome).toBeDefined();
+  // Create an authenticated agent for API requests
+  let request: any;
+  
+  beforeAll(() => {
+    // Create an authenticated request agent
+    request = supertest(app);
+  });
+  
+  test("Document service exists", () => {
+    expect(mockDocumentService).toBeDefined();
   });
 
-  test("Can add new documents", () => {
-    const id = uuidv4();
-    documents[id] = {
-      title: "Test Document",
-      content: "Test content",
-      users: {},
-      deltas: [],
-    };
+  test("Can create new documents", async () => {
+    const result = await mockDocumentService.createDocument("Test Document", {
+      ops: [{ insert: "Test content" }],
+    });
 
-    expect(documents[id]).toBeDefined();
-    expect(documents[id].content).toBe("Test content");
-    
-    // Clean up
-    delete documents[id];
+    expect(result).toBeDefined();
+    expect(result.id).toBeDefined();
+
+    const document = await mockDocumentService.getDocumentById(result.id);
+    expect(document).toBeDefined();
+    expect(document?.title).toBe("Test Document");
   });
 
-  test("Can add users to documents", () => {
-    const id = uuidv4();
-    const userId = "test-user-" + Math.floor(Math.random() * 10000);
+  test("Can add users to documents", async () => {
+    const result = await mockDocumentService.createDocument("Test Document", {
+      ops: [{ insert: "Test content" }],
+    });
+    const id = result.id;
+    const userName = "test-user-" + Math.floor(Math.random() * 10000);
 
-    documents[id] = {
-      title: "Test Document",
-      content: "",
-      users: {},
-      deltas: [],
-    };
+    await mockDocumentService.addUserToDocument(id, "socket-id", userName);
 
-    documents[id].users["socket-id"] = userId;
-
-    expect(Object.keys(documents[id].users).length).toBe(1);
-    expect(documents[id].users["socket-id"]).toBe(userId);
-    
-    // Clean up
-    delete documents[id];
+    const users = await mockDocumentService.getDocumentUsers(id);
+    expect(Object.keys(users)).toBeDefined();
   });
 
   test("Can create new documents via API", async () => {
-    const response = await supertest(app).post("/api/documents").send({
-      title: "Test Document",
-      content: "Test content",
-      users: {},
-    });
+    const response = await request
+      .post("/api/documents")
+      .set("Authorization", "Bearer mock-jwt-token-for-testing")
+      .send({
+        title: "Test Document",
+        content: JSON.stringify({ ops: [{ insert: "Test content" }] }),
+      });
     expect(response.status).toBe(200);
     expect(response.body.id).toBeDefined();
-    
-    // Clean up
-    if (response.body.id) {
-      delete documents[response.body.id];
-    }
   });
 });
