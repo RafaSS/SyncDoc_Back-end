@@ -1,29 +1,135 @@
 import { Router } from 'express';
-import { DocumentController } from '../../controllers/document.controller';
-import { AuthMiddleware } from '../../middlewares/auth.middleware';
+import { isAuthenticated, hasDocumentPermission } from '../../middleware/auth.middleware';
+import { createServices } from '../../config/service-factory';
+import { supabase } from '../../config/supabase';
 
-export class DocumentRoutes {
-  public router: Router;
-  private documentController: DocumentController;
-  private authMiddleware: AuthMiddleware;
+const router = Router();
+const { documentService } = createServices();
 
-  constructor(documentController: DocumentController, authMiddleware: AuthMiddleware) {
-    this.router = Router();
-    this.documentController = documentController;
-    this.authMiddleware = authMiddleware;
-    this.initializeRoutes();
+/**
+ * @route GET /api/documents
+ * @description Get all documents accessible to the user
+ * @access Private
+ */
+router.get('/', isAuthenticated, async (req, res) => {
+  try {
+    const documentList = await documentService.getAllDocuments();
+    res.json(documentList);
+  } catch (error) {
+    console.error("Error fetching documents:", error);
+    res.status(500).json({ error: "Failed to fetch documents" });
   }
+});
 
-  private initializeRoutes(): void {
-    // Public routes (with optional auth)
-    this.router.get('/', this.authMiddleware.optionalAuth, this.documentController.getAllDocuments);
-    this.router.get('/:id', this.authMiddleware.optionalAuth, this.documentController.getDocumentById);
-    this.router.get('/:id/history', this.authMiddleware.optionalAuth, this.documentController.getDocumentHistory);
+/**
+ * @route GET /api/documents/:id
+ * @description Get a document by ID
+ * @access Private
+ */
+router.get('/:id', isAuthenticated, hasDocumentPermission('view'), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const document = await documentService.getDocumentById(id);
     
-    // Routes that can work with or without auth but behave differently when authenticated
-    this.router.post('/', this.authMiddleware.optionalAuth, this.documentController.createDocument);
-    
-    // Routes that require authentication
-    this.router.put('/:id/title', this.authMiddleware.authenticate, this.documentController.updateDocumentTitle);
+    if (!document) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    // Get user count for this document
+    const users = await documentService.getDocumentUsers(id);
+    const userCount = Object.keys(users).length;
+
+    // Return document without sending all deltas to keep response size manageable
+    res.json({
+      id: document.id,
+      title: document.title,
+      content: document.content,
+      userCount,
+    });
+  } catch (error) {
+    console.error("Error fetching document:", error);
+    res.status(500).json({ error: "Failed to fetch document" });
   }
-}
+});
+
+/**
+ * @route GET /api/documents/:id/history
+ * @description Get document change history
+ * @access Private
+ */
+router.get('/:id/history', isAuthenticated, hasDocumentPermission('view'), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const history = await documentService.getDocumentHistory(id);
+    
+    if (!history) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    res.json(history);
+  } catch (error) {
+    console.error("Error fetching document history:", error);
+    res.status(500).json({ error: "Failed to fetch document history" });
+  }
+});
+
+/**
+ * @route POST /api/documents
+ * @description Create a new document
+ * @access Private
+ */
+router.post('/', isAuthenticated, async (req, res) => {
+  try {
+    const userId = (req as any).user?.id;
+    const { id } = await documentService.createDocument(undefined, undefined, userId);
+    
+    // Set the creator as owner
+    if (userId) {
+      await documentService.setDocumentPermission(id, userId, 'owner');
+    }
+    
+    res.json({ id });
+  } catch (error) {
+    console.error("Error creating document:", error);
+    res.status(500).json({ error: "Failed to create document" });
+  }
+});
+
+/**
+ * @route POST /api/documents/:id/share
+ * @description Share a document with another user
+ * @access Private
+ */
+router.post('/:id/share', isAuthenticated, hasDocumentPermission('own'), async (req, res) => {
+  const { id } = req.params;
+  const { email, role } = req.body;
+  
+  if (!email || !['viewer', 'editor', 'owner'].includes(role)) {
+    return res.status(400).json({ error: "Valid email and role (viewer, editor, owner) are required" });
+  }
+  
+  try {
+    // Find user by email
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+      
+    if (userError || !userData) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    // Set permission
+    await documentService.setDocumentPermission(id, userData.id, role);
+    
+    res.json({ message: "Document shared successfully" });
+  } catch (error) {
+    console.error("Error sharing document:", error);
+    res.status(500).json({ error: "Failed to share document" });
+  }
+});
+
+export default router;
