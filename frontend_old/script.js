@@ -15,8 +15,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const copyLinkButton = document.getElementById("copy-link-btn");
 
   // Get configuration from window.SYNCDOC_CONFIG (set in config.js)
-  const API_BASE_URL = window.SYNCDOC_CONFIG?.API_BASE_URL || "http://localhost:3022/api";
-  const SOCKET_URL = window.SYNCDOC_CONFIG?.SOCKET_URL || "http://localhost:3022";
+  const API_BASE_URL =
+    window.SYNCDOC_CONFIG?.API_BASE_URL || "http://localhost:3001/api";
+  const SOCKET_URL =
+    window.SYNCDOC_CONFIG?.SOCKET_URL || "http://localhost:3001";
 
   // State variables
   let socket;

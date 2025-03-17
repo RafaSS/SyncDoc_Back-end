@@ -1,218 +1,242 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useDocumentStore } from '../stores/documentStore'
-import Quill from 'quill'
-import UserList from '../components/UserList.vue'
-import EditorToolbar from '../components/EditorToolbar.vue'
-import ShareModal from '../components/ShareModal.vue'
-import HistoryPanel from '../components/HistoryPanel.vue'
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { useRoute } from "vue-router";
+import { useDocumentStore } from "../stores/documentStore";
+import Quill from "quill";
+import UserList from "../components/UserList.vue";
+import EditorToolbar from "../components/EditorToolbar.vue";
+import ShareModal from "../components/ShareModal.vue";
+import HistoryPanel from "../components/HistoryPanel.vue";
 
-const route = useRoute()
-const documentStore = useDocumentStore()
-const documentId = ref(route.params.id as string)
-const quill = ref<Quill | null>(null)
-const editor = ref<HTMLElement | null>(null)
-const isShowingShareModal = ref(false)
-const isShowingHistoryPanel = ref(false)
-const documentTitle = ref('Untitled Document')
-const connectionStatus = ref('Connecting...')
-const connectionColor = ref('#f39c12')
-const remoteCursors = ref<Record<string, any>>({})
+const route = useRoute();
+const documentStore = useDocumentStore();
+const documentId = ref(route.params.id as string);
+const quill = ref<Quill | null>(null);
+const editor = ref<HTMLElement | null>(null);
+const isShowingShareModal = ref(false);
+const isShowingHistoryPanel = ref(false);
+const documentTitle = ref("Untitled Document");
+const connectionStatus = ref("Connecting...");
+const connectionColor = ref("#f39c12");
+const remoteCursors = ref<Record<string, any>>({});
 
 // Set up Quill and Socket.IO connections
 onMounted(() => {
   // Initialize socket connection if not already initialized
   if (!documentStore.socket) {
-    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3022'
-    documentStore.initializeSocket(SOCKET_URL)
+    const SOCKET_URL =
+      import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
+    documentStore.initializeSocket(SOCKET_URL);
   }
-  
+
   // Initialize Quill editor
   if (editor.value) {
     quill.value = new Quill(editor.value, {
-      theme: 'snow',
+      theme: "snow",
       modules: {
-        toolbar: '#toolbar'
+        toolbar: "#toolbar",
       },
-      placeholder: 'Start typing...'
-    })
-    
+      placeholder: "Start typing...",
+    });
+
     // Disable editor until document loads
-    quill.value.disable()
-    
+    quill.value.disable();
+
     // Set up Quill event handlers
-    setupQuillHandlers()
-    
+    setupQuillHandlers();
+
     // Set up Socket.IO event handlers
-    setupSocketHandlers()
-    
+    setupSocketHandlers();
+
     // Join the document
-    documentStore.joinDocument(documentId.value)
+    documentStore.joinDocument(documentId.value);
   }
-  
+
   // Update document title in page title
-  watch(() => documentStore.document.title, (newTitle) => {
-    document.title = `${newTitle} - SyncDoc`
-    documentTitle.value = newTitle
-  })
-})
+  watch(
+    () => documentStore.document.title,
+    (newTitle) => {
+      document.title = `${newTitle} - SyncDoc`;
+      documentTitle.value = newTitle;
+    }
+  );
+});
 
 onBeforeUnmount(() => {
   // Leave the document when component is unmounted
   if (documentStore.socket && documentStore.connected) {
-    documentStore.socket.emit('leave-document', documentId.value)
+    documentStore.socket.emit("leave-document", documentId.value);
   }
-  
+
   // Remove all cursor elements
-  Object.values(remoteCursors.value).forEach(cursor => {
+  Object.values(remoteCursors.value).forEach((cursor) => {
     if (cursor && cursor.element) {
-      cursor.element.remove()
+      cursor.element.remove();
     }
-  })
-})
+  });
+});
 
 function setupQuillHandlers() {
-  if (!quill.value) return
-  
+  if (!quill.value) return;
+
   // Text change handler
-  quill.value.on('text-change', (delta: { ops: any[] }, _oldDelta: { ops: any[] }, source: string) => {
-    if (source === 'user') {
-      const content = quill.value!.getContents()
-      documentStore.sendTextChange(delta, source, content)
+  quill.value.on(
+    "text-change",
+    (delta: { ops: any[] }, _oldDelta: { ops: any[] }, source: string) => {
+      if (source === "user") {
+        const content = quill.value!.getContents();
+        documentStore.sendTextChange(delta, source, content);
+      }
     }
-  })
-  
+  );
+
   // Selection change handler for cursor movement
-  quill.value.on('selection-change', (range: { index: number, length: number } | null, _oldRange: { index: number, length: number } | null, source: string) => {
-    if (source === 'user' && range) {
-      documentStore.moveCursor(range)
+  quill.value.on(
+    "selection-change",
+    (
+      range: { index: number; length: number } | null,
+      _oldRange: { index: number; length: number } | null,
+      source: string
+    ) => {
+      if (source === "user" && range) {
+        documentStore.moveCursor(range);
+      }
     }
-  })
+  );
 }
 
 function setupSocketHandlers() {
-  if (!documentStore.socket) return
-  
+  if (!documentStore.socket) return;
+
   // Update connection status based on socket state
-  watch(() => documentStore.connected, (isConnected) => {
-    connectionStatus.value = isConnected ? 'Connected' : 'Disconnected'
-    connectionColor.value = isConnected ? '#4CAF50' : '#f44336'
-  })
-  
+  watch(
+    () => documentStore.connected,
+    (isConnected) => {
+      connectionStatus.value = isConnected ? "Connected" : "Disconnected";
+      connectionColor.value = isConnected ? "#4CAF50" : "#f44336";
+    }
+  );
+
   // Document content loading
-  documentStore.socket.on('load-document', (content) => {
-    if (!quill.value) return
-    
-    const parsedContent = content ? JSON.parse(content) : { ops: [] }
-    quill.value.setContents(parsedContent)
-    quill.value.enable()
-    
+  documentStore.socket.on("load-document", (content) => {
+    if (!quill.value) return;
+
+    const parsedContent = content ? JSON.parse(content) : { ops: [] };
+    quill.value.setContents(parsedContent);
+    quill.value.enable();
+
     // Also update the store content
-    documentStore.updateContent(parsedContent)
-  })
-  
+    documentStore.updateContent(parsedContent);
+  });
+
   // Document title loading
-  documentStore.socket.on('document-title', (title) => {
-    documentTitle.value = title
-    documentStore.document.title = title
-  })
-  
+  documentStore.socket.on("document-title", (title) => {
+    documentTitle.value = title;
+    documentStore.document.title = title;
+  });
+
   // Handle remote text changes
-  documentStore.socket.on('text-change', (delta) => {
-    if (!quill.value) return
-    
-    quill.value.updateContents(delta)
-  })
-  
+  documentStore.socket.on("text-change", (delta) => {
+    if (!quill.value) return;
+
+    quill.value.updateContents(delta);
+  });
+
   // Handle remote title changes
-  documentStore.socket.on('title-change', (title) => {
-    documentTitle.value = title
-    documentStore.document.title = title
-  })
-  
+  documentStore.socket.on("title-change", (title) => {
+    documentTitle.value = title;
+    documentStore.document.title = title;
+  });
+
   // Handle user list updates
-  documentStore.socket.on('user-list', (users) => {
-    documentStore.updateUserList(users)
-  })
-  
+  documentStore.socket.on("user-list", (users) => {
+    documentStore.updateUserList(users);
+  });
+
   // Handle remote cursor movements
-  documentStore.socket.on('cursor-move', (socketId, cursorPosition) => {
-    updateRemoteCursor(socketId, cursorPosition)
-  })
-  
+  documentStore.socket.on("cursor-move", (socketId, cursorPosition) => {
+    updateRemoteCursor(socketId, cursorPosition);
+  });
+
   // Handle document history updates
-  documentStore.socket.on('document-history', (history) => {
-    documentStore.updateDocumentHistory(history)
-  })
+  documentStore.socket.on("document-history", (history) => {
+    documentStore.updateDocumentHistory(history);
+  });
 }
 
 // Update title on input change
 function updateTitle() {
-  if (!documentStore.socket || !documentStore.connected) return
-  
-  documentStore.updateTitle(documentTitle.value)
+  if (!documentStore.socket || !documentStore.connected) return;
+
+  documentStore.updateTitle(documentTitle.value);
 }
 
 // Handle the share button click
 function showShareModal() {
-  isShowingShareModal.value = true
+  isShowingShareModal.value = true;
 }
 
 // Handle the history button click
 function toggleHistoryPanel() {
-  isShowingHistoryPanel.value = !isShowingHistoryPanel.value
-  
+  isShowingHistoryPanel.value = !isShowingHistoryPanel.value;
+
   // Fetch document history if showing the panel
-  if (isShowingHistoryPanel.value && documentStore.socket && documentStore.connected) {
-    documentStore.socket.emit('get-document-history', documentId.value)
+  if (
+    isShowingHistoryPanel.value &&
+    documentStore.socket &&
+    documentStore.connected
+  ) {
+    documentStore.socket.emit("get-document-history", documentId.value);
   }
 }
 
 // Update remote cursor positions
 function updateRemoteCursor(userId: string, range: any) {
-  if (userId === documentStore.userId || !quill.value || !range) return
-  
+  if (userId === documentStore.userId || !quill.value || !range) return;
+
   // Get or create the cursor element
-  let cursor = remoteCursors.value[userId]
-  
+  let cursor = remoteCursors.value[userId];
+
   if (!cursor) {
-    const cursorElement = document.createElement('div')
-    cursorElement.className = 'cursor'
-    cursorElement.style.position = 'absolute'
-    cursorElement.style.height = '20px'
-    cursorElement.style.width = '2px'
-    cursorElement.style.backgroundColor = documentStore.userColors[userId] || '#f44336'
-    cursorElement.style.transition = 'transform 0.1s'
-    
-    const nameFlag = document.createElement('div')
-    nameFlag.className = 'cursor-flag'
-    nameFlag.style.position = 'absolute'
-    nameFlag.style.top = '-18px'
-    nameFlag.style.left = '0'
-    nameFlag.style.backgroundColor = documentStore.userColors[userId] || '#f44336'
-    nameFlag.style.color = 'white'
-    nameFlag.style.padding = '2px 4px'
-    nameFlag.style.borderRadius = '3px'
-    nameFlag.style.fontSize = '10px'
-    nameFlag.style.whiteSpace = 'nowrap'
-    nameFlag.textContent = documentStore.document.users[userId] || 'Anonymous'
-    
-    cursorElement.appendChild(nameFlag)
-    document.querySelector('.ql-editor')?.appendChild(cursorElement)
-    
+    const cursorElement = document.createElement("div");
+    cursorElement.className = "cursor";
+    cursorElement.style.position = "absolute";
+    cursorElement.style.height = "20px";
+    cursorElement.style.width = "2px";
+    cursorElement.style.backgroundColor =
+      documentStore.userColors[userId] || "#f44336";
+    cursorElement.style.transition = "transform 0.1s";
+
+    const nameFlag = document.createElement("div");
+    nameFlag.className = "cursor-flag";
+    nameFlag.style.position = "absolute";
+    nameFlag.style.top = "-18px";
+    nameFlag.style.left = "0";
+    nameFlag.style.backgroundColor =
+      documentStore.userColors[userId] || "#f44336";
+    nameFlag.style.color = "white";
+    nameFlag.style.padding = "2px 4px";
+    nameFlag.style.borderRadius = "3px";
+    nameFlag.style.fontSize = "10px";
+    nameFlag.style.whiteSpace = "nowrap";
+    nameFlag.textContent = documentStore.document.users[userId] || "Anonymous";
+
+    cursorElement.appendChild(nameFlag);
+    document.querySelector(".ql-editor")?.appendChild(cursorElement);
+
     cursor = {
       element: cursorElement,
-      nameFlag
-    }
-    
-    remoteCursors.value[userId] = cursor
+      nameFlag,
+    };
+
+    remoteCursors.value[userId] = cursor;
   }
-  
+
   // Update the cursor position
-  const position = quill.value.getBounds(range.index)
-  cursor.element.style.transform = `translate(${position.left}px, ${position.top}px)`
-  cursor.nameFlag.textContent = documentStore.document.users[userId] || 'Anonymous'
+  const position = quill.value.getBounds(range.index);
+  cursor.element.style.transform = `translate(${position.left}px, ${position.top}px)`;
+  cursor.nameFlag.textContent =
+    documentStore.document.users[userId] || "Anonymous";
 }
 </script>
 
@@ -236,8 +260,8 @@ function updateRemoteCursor(userId: string, range: any) {
         <EditorToolbar @show-history="toggleHistoryPanel" />
         <div ref="editor" id="editor"></div>
       </div>
-      
-      <HistoryPanel 
+
+      <HistoryPanel
         v-if="isShowingHistoryPanel"
         :history="documentStore.documentHistory"
         @close="isShowingHistoryPanel = false"
@@ -247,15 +271,17 @@ function updateRemoteCursor(userId: string, range: any) {
     <footer>
       <div class="status">
         <span :style="{ color: connectionColor }">{{ connectionStatus }}</span>
-        <span>{{ documentStore.document.users[documentStore.userId] || 'Anonymous' }}</span>
+        <span>{{
+          documentStore.document.users[documentStore.userId] || "Anonymous"
+        }}</span>
       </div>
       <div class="document-actions">
         <button @click="$router.push('/')">Documents</button>
         <button @click="showShareModal">Share</button>
       </div>
     </footer>
-    
-    <ShareModal 
+
+    <ShareModal
       v-if="isShowingShareModal"
       :document-id="documentId"
       @close="isShowingShareModal = false"
@@ -282,7 +308,7 @@ header h1 {
   font-size: 1.5rem;
   margin: 0;
   margin-right: 2rem;
-  color: #4285F4;
+  color: #4285f4;
 }
 
 .document-info {
@@ -338,7 +364,7 @@ footer {
 
 .document-actions button {
   padding: 0.5rem 1rem;
-  background-color: #4285F4;
+  background-color: #4285f4;
   color: white;
   border: none;
   border-radius: 4px;

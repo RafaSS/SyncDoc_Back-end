@@ -1,43 +1,49 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useDocumentStore } from '../stores/documentStore'
-import DocumentList from '../components/DocumentList.vue'
+import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { useDocumentStore } from "../stores/documentStore";
+import DocumentList from "../components/DocumentList.vue";
 
-const router = useRouter()
-const documentStore = useDocumentStore()
-const isLoading = ref(true)
-const documents = ref<Array<{ id: string; title: string; userCount: number }>>([])
+const router = useRouter();
+const documentStore = useDocumentStore();
+const isLoading = ref(true);
+const documents = ref<Array<{ id: string; title: string; userCount: number }>>(
+  []
+);
 
 onMounted(async () => {
   // Initialize the socket connection
-  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3022'
-  documentStore.initializeSocket(SOCKET_URL)
-  
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
+  documentStore.initializeSocket(SOCKET_URL);
+
   try {
     // Fetch documents from API
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3022/api'}/documents`)
-    documents.value = await response.json()
+    const response = await fetch(
+      `${
+        import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api"
+      }/documents`
+    );
+    documents.value = await response.json();
   } catch (error) {
-    console.error('Failed to fetch documents:', error)
+    console.error("Failed to fetch documents:", error);
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
-})
+});
 
 async function createNewDocument() {
   try {
-    const documentId = await documentStore.createNewDocument()
+    const documentId = await documentStore.createNewDocument();
     if (documentId) {
-      router.push({ name: 'editor', params: { id: documentId as string } })
+      router.push({ name: "editor", params: { id: documentId as string } });
     }
   } catch (error) {
-    console.error('Failed to create new document:', error)
+    console.error("Failed to create new document:", error);
   }
 }
 
 function openDocument(id: string) {
-  router.push({ name: 'editor', params: { id } })
+  router.push({ name: "editor", params: { id } });
 }
 </script>
 
@@ -47,19 +53,19 @@ function openDocument(id: string) {
       <h1>SyncDoc</h1>
       <p>Collaborative Document Editor</p>
     </header>
-    
+
     <main>
       <div class="actions">
         <button @click="createNewDocument" class="create-btn">
           <i class="fas fa-plus"></i> New Document
         </button>
       </div>
-      
+
       <div v-if="isLoading" class="loading">
         <p>Loading documents...</p>
       </div>
-      
-      <DocumentList 
+
+      <DocumentList
         v-else
         :documents="documents"
         @open-document="openDocument"
@@ -83,7 +89,7 @@ header {
 header h1 {
   font-size: 3rem;
   margin-bottom: 0.5rem;
-  color: #4285F4;
+  color: #4285f4;
 }
 
 header p {
@@ -98,7 +104,7 @@ header p {
 }
 
 .create-btn {
-  background-color: #4285F4;
+  background-color: #4285f4;
   color: white;
   border: none;
   border-radius: 4px;
