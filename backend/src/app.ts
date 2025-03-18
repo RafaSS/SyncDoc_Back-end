@@ -221,7 +221,7 @@ const setupSocketHandlers = () => {
       console.log("User joining document:", documentId);
       socket.join(documentId);
 
-      console.log("User joined document: 👌", documentId);
+      console.log("User joined document: 👌", documentId, userName);
 
       // If authenticated, get the actual user data
       const userId = (socket as any).userId;

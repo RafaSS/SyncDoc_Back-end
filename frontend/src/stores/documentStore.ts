@@ -4,6 +4,7 @@ import { ref, reactive } from "vue";
 import { SocketService } from "../services/socketService.ts";
 import type { Document, Delta, CursorPosition } from "../types";
 import type { Socket } from "socket.io-client";
+import { v4 as uuidv4 } from "uuid";
 
 export const useDocumentStore = defineStore("document", () => {
   // State
@@ -143,7 +144,8 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   function generateUserId(): string {
-    const id = Math.random().toString(36).substring(2, 15);
+    //use uuid to generate a random id
+    const id = uuidv4();
     localStorage.setItem("userId", id);
     return id;
   }

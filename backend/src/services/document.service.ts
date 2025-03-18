@@ -1,31 +1,38 @@
-import { Delta, DeltaChange } from '../interfaces/delta.interface';
-import { IDocument } from '../interfaces/document.interface';
-import { IDocumentService } from '../interfaces/document-service.interface';
-import { DocumentRepository } from '../repositories/document.repository';
-import { UserRepository } from '../repositories/user.repository';
-import { supabase, TABLES } from '../config/supabase';
+import { Delta, DeltaChange } from "../interfaces/delta.interface";
+import { IDocument } from "../interfaces/document.interface";
+import { IDocumentService } from "../interfaces/document-service.interface";
+import { DocumentRepository } from "../repositories/document.repository";
+import { UserRepository } from "../repositories/user.repository";
+import { supabase, TABLES } from "../config/supabase";
 
 export class DocumentService implements IDocumentService {
   private documentRepository: DocumentRepository;
   private userRepository: UserRepository;
 
-  constructor(documentRepository: DocumentRepository, userRepository: UserRepository) {
+  constructor(
+    documentRepository: DocumentRepository,
+    userRepository: UserRepository
+  ) {
     this.documentRepository = documentRepository;
     this.userRepository = userRepository;
   }
 
-  public async getAllDocuments(): Promise<Array<{ id: string; title: string; userCount: number }>> {
+  public async getAllDocuments(): Promise<
+    Array<{ id: string; title: string; userCount: number }>
+  > {
     const allDocuments = await Promise.all(
-      (await this.documentRepository.getUserDocuments('system')).map(async (doc) => {
+      (
+        await this.documentRepository.getUserDocuments("system")
+      ).map(async (doc) => {
         const users = await this.documentRepository.getDocumentUsers(doc.id);
         return {
           id: doc.id,
           title: doc.title,
-          userCount: users.length
+          userCount: users.length,
         };
       })
     );
-    
+
     return allDocuments;
   }
 
@@ -33,7 +40,9 @@ export class DocumentService implements IDocumentService {
     return this.documentRepository.getDocumentById(id);
   }
 
-  public async getDocumentHistory(id: string): Promise<{ id: string; title: string; deltas: DeltaChange[] } | null> {
+  public async getDocumentHistory(
+    id: string
+  ): Promise<{ id: string; title: string; deltas: DeltaChange[] } | null> {
     const document = await this.documentRepository.getDocumentById(id);
     if (!document) {
       return null;
@@ -43,12 +52,12 @@ export class DocumentService implements IDocumentService {
     return {
       id: document.id,
       title: document.title,
-      deltas: history.map(change => ({
+      deltas: history.map((change) => ({
         delta: change.delta,
         userId: change.user_id,
-        userName: change.user ? change.user.name : 'Unknown User',
-        timestamp: new Date(change.created_at).getTime()
-      }))
+        userName: change.user ? change.user.name : "Unknown User",
+        timestamp: new Date(change.created_at).getTime(),
+      })),
     };
   }
 
@@ -58,15 +67,18 @@ export class DocumentService implements IDocumentService {
     userId?: string
   ): Promise<{ id: string }> {
     const document = await this.documentRepository.createDocument(
-      title || 'Untitled Document',
+      title || "Untitled Document",
       content || { ops: [] },
       userId
     );
-    
+
     return { id: document.id };
   }
 
-  public async updateDocumentTitle(id: string, title: string): Promise<boolean> {
+  public async updateDocumentTitle(
+    id: string,
+    title: string
+  ): Promise<boolean> {
     const document = await this.documentRepository.getDocumentById(id);
     if (!document) {
       return false;
@@ -77,14 +89,20 @@ export class DocumentService implements IDocumentService {
   }
 
   public async updateDocumentContent(
-    documentId: string, 
+    documentId: string,
     content: string,
-    delta: Delta, 
-    socketId: string, 
+    delta: Delta,
+    socketId: string,
     userName: string,
     userId?: string
   ): Promise<void> {
-    return this.documentRepository.updateDocumentContent(documentId, content, delta, socketId, userName);
+    return this.documentRepository.updateDocumentContent(
+      documentId,
+      content,
+      delta,
+      socketId,
+      userName
+    );
   }
 
   /**
@@ -94,21 +112,30 @@ export class DocumentService implements IDocumentService {
    * @param userName User name
    * @param userId Optional user ID (for authenticated users)
    */
-  public async addUserToDocument(documentId: string, socketId: string, userName: string, userId?: string): Promise<void> {
-    await this.documentRepository.addUserToDocument(documentId, socketId, userName);
-    
+  public async addUserToDocument(
+    documentId: string,
+    socketId: string,
+    userName: string,
+    userId?: string
+  ): Promise<void> {
+    await this.documentRepository.addUserToDocument(
+      documentId,
+      socketId,
+      userName
+    );
+
     // If user is authenticated, add them to document permissions
     if (userId) {
       // Check if user already has permission
       const { data } = await supabase
         .from(TABLES.USER_DOCUMENTS)
-        .select('*')
-        .eq('user_id', userId)
-        .eq('document_id', documentId);
-        
+        .select("*")
+        .eq("user_id", userId)
+        .eq("document_id", documentId);
+
       // If no permission exists, add as viewer by default
       if (!data || data.length === 0) {
-        await this.setDocumentPermission(documentId, userId, 'viewer');
+        await this.setDocumentPermission(documentId, userId, "viewer");
       }
     }
   }
@@ -122,39 +149,40 @@ export class DocumentService implements IDocumentService {
   public async setDocumentPermission(
     documentId: string,
     userId: string,
-    role: 'viewer' | 'editor' | 'owner'
+    role: "viewer" | "editor" | "owner"
   ): Promise<void> {
     // Check if permission already exists
     const { data, error } = await supabase
       .from(TABLES.USER_DOCUMENTS)
-      .select('*')
-      .eq('user_id', userId)
-      .eq('document_id', documentId);
-      
+      .select("*")
+      .eq("user_id", userId)
+      .eq("document_id", documentId);
+
     if (error) {
       throw new Error(`Failed to check document permission: ${error.message}`);
     }
-    
+
     if (data && data.length > 0) {
       // Update existing permission
       await supabase
         .from(TABLES.USER_DOCUMENTS)
         .update({ role })
-        .eq('user_id', userId)
-        .eq('document_id', documentId);
+        .eq("user_id", userId)
+        .eq("document_id", documentId);
     } else {
       // Create new permission
-      await supabase
-        .from(TABLES.USER_DOCUMENTS)
-        .insert({
-          user_id: userId,
-          document_id: documentId,
-          role
-        });
+      await supabase.from(TABLES.USER_DOCUMENTS).insert({
+        user_id: userId,
+        document_id: documentId,
+        role,
+      });
     }
   }
 
-  public async removeUserFromDocument(documentId: string, userId: string): Promise<boolean> {
+  public async removeUserFromDocument(
+    documentId: string,
+    userId: string
+  ): Promise<boolean> {
     const document = await this.documentRepository.getDocumentById(documentId);
     if (!document) {
       return false;
@@ -164,7 +192,9 @@ export class DocumentService implements IDocumentService {
     return true;
   }
 
-  public async getDocumentUsers(documentId: string): Promise<Record<string, string>> {
+  public async getDocumentUsers(
+    documentId: string
+  ): Promise<Record<string, string>> {
     const users = await this.documentRepository.getDocumentUsers(documentId);
     if (!users || users.length === 0) {
       return {};
@@ -172,6 +202,7 @@ export class DocumentService implements IDocumentService {
 
     // Transform the array of users into the expected format
     return users.reduce((acc, userDoc) => {
+      console.log("User document:", userDoc);
       acc[userDoc.user_id] = userDoc.user.name;
       return acc;
     }, {} as Record<string, string>);

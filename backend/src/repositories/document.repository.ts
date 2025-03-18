@@ -18,45 +18,51 @@ export class DocumentRepository {
     content: Delta = { ops: [] },
     userId?: string
   ): Promise<IDocument> {
-    // Insert document
+    try {
+      // Insert document
+      console.log("Creating document with user ID:😊", userId);
 
-    console.log("Creating document with user ID:😊", userId);
+      const { data: document, error: docError } = await supabase
+        .from(TABLES.DOCUMENTS)
+        .insert({
+          title,
+          content,
+          created_by: userId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select("*")
+        .single();
 
-    const { data: document, error: docError } = await supabase
-      .from(TABLES.DOCUMENTS)
-      .insert({
-        title,
-        content,
-        created_by: userId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select("*")
-      .single();
+      if (docError) {
+        throw new Error(`Error creating document: ${docError.message}`);
+      }
 
-    if (docError)
-      throw new Error(`Error creating document: ${docError.message}`);
+      // Associate document with user
+      const { error: userDocError } = await supabase
+        .from(TABLES.USER_DOCUMENTS)
+        .insert({
+          user_id: userId,
+          document_id: document.id,
+          role: "owner",
+          created_at: new Date().toISOString(),
+        });
 
-    // Associate document with user
-    const { error: userDocError } = await supabase
-      .from(TABLES.USER_DOCUMENTS)
-      .insert({
-        user_id: userId,
-        document_id: document.id,
-        role: "owner",
-        created_at: new Date().toISOString(),
-      });
-    console.log("User document association created:", userDocError);
+      console.log("User document association created:", userDocError);
 
-    // if (userDocError) {
-    //   // Attempt to clean up the document if user association fails
-    //   await supabase.from(TABLES.DOCUMENTS).delete().eq("id", document.id);
-    //   throw new Error(
-    //     `Error associating document with user: ${userDocError.message}`
-    //   );
-    // }
+      // if (userDocError) {
+      //   // Attempt to clean up the document if user association fails
+      //   await supabase.from(TABLES.DOCUMENTS).delete().eq("id", document.id);
+      //   throw new Error(
+      //     `Error associating document with user: ${userDocError.message}`
+      //   );
+      // }
 
-    return document;
+      return document;
+    } catch (error) {
+      console.error("Failed to create document:", error);
+      throw error;
+    }
   }
 
   /**
@@ -65,18 +71,23 @@ export class DocumentRepository {
    * @returns The document or null if not found
    */
   async getDocumentById(documentId: string): Promise<IDocument | null> {
-    const { data, error } = await supabase
-      .from(TABLES.DOCUMENTS)
-      .select("*")
-      .eq("id", documentId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.DOCUMENTS)
+        .select("*")
+        .eq("id", documentId)
+        .single();
 
-    if (error) {
-      if (error.code === "PGRST116") return null; // Not found
-      throw new Error(`Error fetching document: ${error.message}`);
+      if (error) {
+        if (error.code === "PGRST116") return null; // Not found
+        throw new Error(`Error fetching document: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Failed to get document by ID:", error);
+      throw error;
     }
-
-    return data;
   }
 
   /**
@@ -89,21 +100,29 @@ export class DocumentRepository {
     documentId: string,
     updates: Partial<IDocument>
   ): Promise<IDocument> {
-    // Always update the updated_at timestamp
-    const updatedData = {
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      // Always update the updated_at timestamp
+      const updatedData = {
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
 
-    const { data, error } = await supabase
-      .from(TABLES.DOCUMENTS)
-      .update(updatedData)
-      .eq("id", documentId)
-      .select("*")
-      .single();
+      const { data, error } = await supabase
+        .from(TABLES.DOCUMENTS)
+        .update(updatedData)
+        .eq("id", documentId)
+        .select("*")
+        .single();
 
-    if (error) throw new Error(`Error updating document: ${error.message}`);
-    return data;
+      if (error) {
+        throw new Error(`Error updating document: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Failed to update document:", error);
+      throw error;
+    }
   }
 
   /**
@@ -112,26 +131,34 @@ export class DocumentRepository {
    * @returns True if document was deleted
    */
   async deleteDocument(documentId: string): Promise<boolean> {
-    // First delete all user associations
-    await supabase
-      .from(TABLES.USER_DOCUMENTS)
-      .delete()
-      .eq("document_id", documentId);
+    try {
+      // First delete all user associations
+      await supabase
+        .from(TABLES.USER_DOCUMENTS)
+        .delete()
+        .eq("document_id", documentId);
 
-    // Then delete all document changes
-    await supabase
-      .from(TABLES.DOCUMENT_CHANGES)
-      .delete()
-      .eq("document_id", documentId);
+      // Then delete all document changes
+      await supabase
+        .from(TABLES.DOCUMENT_CHANGES)
+        .delete()
+        .eq("document_id", documentId);
 
-    // Finally delete the document
-    const { error } = await supabase
-      .from(TABLES.DOCUMENTS)
-      .delete()
-      .eq("id", documentId);
+      // Finally delete the document
+      const { error } = await supabase
+        .from(TABLES.DOCUMENTS)
+        .delete()
+        .eq("id", documentId);
 
-    if (error) throw new Error(`Error deleting document: ${error.message}`);
-    return true;
+      if (error) {
+        throw new Error(`Error deleting document: ${error.message}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to delete document:", error);
+      throw error;
+    }
   }
 
   /**
@@ -144,29 +171,35 @@ export class DocumentRepository {
     userId: string,
     options = { page: 1, limit: 10 }
   ): Promise<IDocument[]> {
-    const { data, error } = await supabase
-      .from(TABLES.USER_DOCUMENTS)
-      .select(
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.USER_DOCUMENTS)
+        .select(
+          `
+          document_id,
+          role,
+          ${TABLES.DOCUMENTS}:document_id (*)
         `
-        document_id,
-        role,
-        ${TABLES.DOCUMENTS}:document_id (*)
-      `
-      )
-      .eq("user_id", userId)
-      .range(
-        (options.page - 1) * options.limit,
-        options.page * options.limit - 1
-      );
+        )
+        .eq("user_id", userId)
+        .range(
+          (options.page - 1) * options.limit,
+          options.page * options.limit - 1
+        );
 
-    if (error)
-      throw new Error(`Error fetching user documents: ${error.message}`);
+      if (error) {
+        throw new Error(`Error fetching user documents: ${error.message}`);
+      }
 
-    // Map the nested structure to a flat list of documents with role
-    return data.map((item: Record<string, any>) => ({
-      ...item[TABLES.DOCUMENTS],
-      userRole: item.role,
-    }));
+      // Map the nested structure to a flat list of documents with role
+      return data.map((item: Record<string, any>) => ({
+        ...item[TABLES.DOCUMENTS],
+        userRole: item.role,
+      }));
+    } catch (error) {
+      console.error("Failed to get user documents:", error);
+      throw error;
+    }
   }
 
   /**
@@ -181,20 +214,27 @@ export class DocumentRepository {
     userId: string,
     delta: DeltaChange
   ): Promise<any> {
-    const { data, error } = await supabase
-      .from(TABLES.DOCUMENT_CHANGES)
-      .insert({
-        document_id: documentId,
-        user_id: userId,
-        delta,
-        created_at: new Date().toISOString(),
-      })
-      .select("*")
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.DOCUMENT_CHANGES)
+        .insert({
+          document_id: documentId,
+          user_id: userId,
+          delta,
+          created_at: new Date().toISOString(),
+        })
+        .select("*")
+        .single();
 
-    if (error)
-      throw new Error(`Error saving document change: ${error.message}`);
-    return data;
+      if (error) {
+        throw new Error(`Error saving document change: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Failed to save document change:", error);
+      throw error;
+    }
   }
 
   /**
@@ -207,19 +247,26 @@ export class DocumentRepository {
     documentId: string,
     options = { page: 1, limit: 10 }
   ): Promise<any[]> {
-    const { data, error } = await supabase
-      .from(TABLES.DOCUMENT_CHANGES)
-      .select("*, user:user_id (name, email)")
-      .eq("document_id", documentId)
-      .order("created_at", { ascending: false })
-      .range(
-        (options.page - 1) * options.limit,
-        options.page * options.limit - 1
-      );
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.DOCUMENT_CHANGES)
+        .select("*, user:user_id (name, email)")
+        .eq("document_id", documentId)
+        .order("created_at", { ascending: false })
+        .range(
+          (options.page - 1) * options.limit,
+          options.page * options.limit - 1
+        );
 
-    if (error)
-      throw new Error(`Error fetching document history: ${error.message}`);
-    return data;
+      if (error) {
+        throw new Error(`Error fetching document history: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Failed to get document history:", error);
+      throw error;
+    }
   }
 
   /**
@@ -234,42 +281,53 @@ export class DocumentRepository {
     userId: string,
     role: string
   ): Promise<any> {
-    // Check if relationship already exists
-    const { data: existing } = await supabase
-      .from(TABLES.USER_DOCUMENTS)
-      .select("*")
-      .eq("document_id", documentId)
-      .eq("user_id", userId)
-      .single();
-
-    if (existing) {
-      // Update existing relationship if it exists
-      const { data, error } = await supabase
+    try {
+      // Check if relationship already exists
+      const { data: existing } = await supabase
         .from(TABLES.USER_DOCUMENTS)
-        .update({ role })
+        .select("*")
         .eq("document_id", documentId)
         .eq("user_id", userId)
-        .select("*")
         .single();
 
-      if (error)
-        throw new Error(`Error updating document sharing: ${error.message}`);
-      return data;
-    } else {
-      // Create new relationship
-      const { data, error } = await supabase
-        .from(TABLES.USER_DOCUMENTS)
-        .insert({
-          document_id: documentId,
-          user_id: userId,
-          role,
-          created_at: new Date().toISOString(),
-        })
-        .select("*")
-        .single();
+      if (existing) {
+        // Update existing relationship if it exists
+        const { data, error } = await supabase
+          .from(TABLES.USER_DOCUMENTS)
+          .update({ role })
+          .eq("document_id", documentId)
+          .eq("user_id", userId)
+          .select("*")
+          .single();
 
-      if (error) throw new Error(`Error sharing document: ${error.message}`);
-      return data;
+        if (error) {
+          throw new Error(`Error updating document sharing: ${error.message}`);
+        }
+
+        return data;
+      } else {
+        // Create new relationship
+        const { data, error } = await supabase
+          .from(TABLES.USER_DOCUMENTS)
+          .insert({
+            document_id: documentId,
+            user_id: userId,
+            role,
+            created_at: new Date().toISOString(),
+          })
+          .select("*")
+          .single();
+
+        if (error) {
+          console.log(error, "🤬");
+          throw new Error(`Error sharing document: ${error.message}`);
+        }
+
+        return data;
+      }
+    } catch (error) {
+      console.error("Failed to share document:", error);
+      throw error;
     }
   }
 
@@ -283,15 +341,22 @@ export class DocumentRepository {
     documentId: string,
     userId: string
   ): Promise<boolean> {
-    const { error } = await supabase
-      .from(TABLES.USER_DOCUMENTS)
-      .delete()
-      .eq("document_id", documentId)
-      .eq("user_id", userId);
+    try {
+      const { error } = await supabase
+        .from(TABLES.USER_DOCUMENTS)
+        .delete()
+        .eq("document_id", documentId)
+        .eq("user_id", userId);
 
-    if (error)
-      throw new Error(`Error removing document access: ${error.message}`);
-    return true;
+      if (error) {
+        throw new Error(`Error removing document access: ${error.message}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to remove document access:", error);
+      throw error;
+    }
   }
 
   /**
@@ -300,14 +365,21 @@ export class DocumentRepository {
    * @returns List of users with their access roles
    */
   async getDocumentUsers(documentId: string): Promise<any[]> {
-    const { data, error } = await supabase
-      .from(TABLES.USER_DOCUMENTS)
-      .select("*, user:user_id (*)")
-      .eq("document_id", documentId);
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.USER_DOCUMENTS)
+        .select("*, user:user_id (*)")
+        .eq("document_id", documentId);
 
-    if (error)
-      throw new Error(`Error fetching document users: ${error.message}`);
-    return data;
+      if (error) {
+        throw new Error(`Error fetching document users: ${error.message}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Failed to get document users:", error);
+      throw error;
+    }
   }
 
   /**
@@ -320,19 +392,25 @@ export class DocumentRepository {
   public async addUserToDocument(
     documentId: string,
     socketId: string,
-    userName: string
+    userName: string,
+    userId: string
   ): Promise<void> {
-    // Check if document exists
-    const document = await this.getDocumentById(documentId);
-    if (!document) {
-      throw new Error(`Document ${documentId} does not exist`);
+    try {
+      // Check if document exists
+      const document = await this.getDocumentById(documentId);
+      if (!document) {
+        throw new Error(`Document ${documentId} does not exist`);
+      }
+
+      // Add to active users in memory via socket ID
+      // Note: This is now handled in the service layer with the activeUsers object
+
+      // For backwards compatibility with older code, we'll still store the user-document relationship
+      await this.shareDocument(documentId, userId, "editor");
+    } catch (error) {
+      console.error("Failed to add user to document:", error);
+      throw error;
     }
-
-    // Add to active users in memory via socket ID
-    // Note: This is now handled in the service layer with the activeUsers object
-
-    // For backwards compatibility with older code, we'll still store the user-document relationship
-    await this.shareDocument(documentId, socketId, "editor");
   }
 
   /**
@@ -351,20 +429,25 @@ export class DocumentRepository {
     socketId: string,
     userName: string
   ): Promise<void> {
-    const document = await this.getDocumentById(documentId);
-    if (!document) {
-      throw new Error(`Document ${documentId} does not exist`);
+    try {
+      const document = await this.getDocumentById(documentId);
+      if (!document) {
+        throw new Error(`Document ${documentId} does not exist`);
+      }
+
+      // Save the document change
+      await this.saveDocumentChange(documentId, socketId, {
+        delta,
+        userId: socketId,
+        userName,
+        timestamp: Date.now(),
+      });
+
+      // Update the document content
+      await this.updateDocument(documentId, { content });
+    } catch (error) {
+      console.error("Failed to update document content:", error);
+      throw error;
     }
-
-    // Save the document change
-    await this.saveDocumentChange(documentId, socketId, {
-      delta,
-      userId: socketId,
-      userName,
-      timestamp: Date.now(),
-    });
-
-    // Update the document content
-    await this.updateDocument(documentId, { content });
   }
 }
