@@ -2,39 +2,44 @@
  * Represents a Quill Delta operation
  */
 export interface DeltaOperation {
-  insert?: string | { [key: string]: any }
-  delete?: number
-  retain?: number
-  attributes?: { [key: string]: any }
+  insert?: string | { [key: string]: any };
+  delete?: number;
+  retain?: number;
+  attributes?: { [key: string]: any };
 }
 
 /**
  * Represents a Quill Delta - the core format for describing content and changes
  */
 export interface Delta {
-  ops: DeltaOperation[]
+  ops: DeltaOperation[];
 }
 
 /**
  * Represents a delta change with metadata
  */
 export interface DeltaChange {
-  delta: Delta
-  userId: string
-  userName: string
-  timestamp: number
+  delta: Delta;
+  userId: string;
+  userName: string;
+  timestamp: number;
 }
 
 /**
  * Represents a document in the SyncDoc application
  */
 export interface Document {
-  id: string
-  title: string
-  content: string
-  users: Record<string, string>
-  deltas: DeltaChange[]
-  createdAt: Date
-  updatedAt: Date
-  ownerId?: string
+  id: string;
+  title: string;
+  content: string | null;
+  users: Record<string, string>;
+  deltas: DeltaChange[];
+  createdAt: Date;
+  updatedAt: Date;
+  ownerId?: string | null;
+}
+
+export interface CursorPosition {
+  index: number;
+  length: number;
 }

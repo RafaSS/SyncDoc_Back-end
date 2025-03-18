@@ -1,6 +1,6 @@
-import { supabase, TABLES } from '../config/supabase'
-import { IDocument } from '../interfaces/document.interface'
-import { Delta, DeltaChange } from '../interfaces/delta.interface'
+import { supabase, TABLES } from "../config/supabase";
+import { IDocument } from "../interfaces/document.interface";
+import { Delta, DeltaChange } from "../interfaces/delta.interface";
 
 /**
  * Repository class for document operations using Supabase
@@ -13,8 +13,15 @@ export class DocumentRepository {
    * @param userId Creator user ID
    * @returns The created document
    */
-  async createDocument(title: string = 'Untitled Document', content: Delta = { ops: [] }, userId?: string): Promise<IDocument> {
+  async createDocument(
+    title: string = "Untitled Document",
+    content: Delta = { ops: [] },
+    userId?: string
+  ): Promise<IDocument> {
     // Insert document
+
+    console.log("Creating document with user ID:😊", userId);
+
     const { data: document, error: docError } = await supabase
       .from(TABLES.DOCUMENTS)
       .insert({
@@ -22,12 +29,13 @@ export class DocumentRepository {
         content,
         created_by: userId,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
-      .select('*')
-      .single()
+      .select("*")
+      .single();
 
-    if (docError) throw new Error(`Error creating document: ${docError.message}`)
+    if (docError)
+      throw new Error(`Error creating document: ${docError.message}`);
 
     // Associate document with user
     const { error: userDocError } = await supabase
@@ -35,17 +43,20 @@ export class DocumentRepository {
       .insert({
         user_id: userId,
         document_id: document.id,
-        role: 'owner',
-        created_at: new Date().toISOString()
-      })
+        role: "owner",
+        created_at: new Date().toISOString(),
+      });
+    console.log("User document association created:", userDocError);
 
-    if (userDocError) {
-      // Attempt to clean up the document if user association fails
-      await supabase.from(TABLES.DOCUMENTS).delete().eq('id', document.id)
-      throw new Error(`Error associating document with user: ${userDocError.message}`)
-    }
+    // if (userDocError) {
+    //   // Attempt to clean up the document if user association fails
+    //   await supabase.from(TABLES.DOCUMENTS).delete().eq("id", document.id);
+    //   throw new Error(
+    //     `Error associating document with user: ${userDocError.message}`
+    //   );
+    // }
 
-    return document
+    return document;
   }
 
   /**
@@ -56,16 +67,16 @@ export class DocumentRepository {
   async getDocumentById(documentId: string): Promise<IDocument | null> {
     const { data, error } = await supabase
       .from(TABLES.DOCUMENTS)
-      .select('*')
-      .eq('id', documentId)
-      .single()
+      .select("*")
+      .eq("id", documentId)
+      .single();
 
     if (error) {
-      if (error.code === 'PGRST116') return null // Not found
-      throw new Error(`Error fetching document: ${error.message}`)
+      if (error.code === "PGRST116") return null; // Not found
+      throw new Error(`Error fetching document: ${error.message}`);
     }
 
-    return data
+    return data;
   }
 
   /**
@@ -74,22 +85,25 @@ export class DocumentRepository {
    * @param updates Object containing the fields to update
    * @returns The updated document
    */
-  async updateDocument(documentId: string, updates: Partial<IDocument>): Promise<IDocument> {
+  async updateDocument(
+    documentId: string,
+    updates: Partial<IDocument>
+  ): Promise<IDocument> {
     // Always update the updated_at timestamp
     const updatedData = {
       ...updates,
-      updated_at: new Date().toISOString()
-    }
-    
+      updated_at: new Date().toISOString(),
+    };
+
     const { data, error } = await supabase
       .from(TABLES.DOCUMENTS)
       .update(updatedData)
-      .eq('id', documentId)
-      .select('*')
-      .single()
+      .eq("id", documentId)
+      .select("*")
+      .single();
 
-    if (error) throw new Error(`Error updating document: ${error.message}`)
-    return data
+    if (error) throw new Error(`Error updating document: ${error.message}`);
+    return data;
   }
 
   /**
@@ -102,22 +116,22 @@ export class DocumentRepository {
     await supabase
       .from(TABLES.USER_DOCUMENTS)
       .delete()
-      .eq('document_id', documentId)
-    
+      .eq("document_id", documentId);
+
     // Then delete all document changes
     await supabase
       .from(TABLES.DOCUMENT_CHANGES)
       .delete()
-      .eq('document_id', documentId)
-    
+      .eq("document_id", documentId);
+
     // Finally delete the document
     const { error } = await supabase
       .from(TABLES.DOCUMENTS)
       .delete()
-      .eq('id', documentId)
+      .eq("id", documentId);
 
-    if (error) throw new Error(`Error deleting document: ${error.message}`)
-    return true
+    if (error) throw new Error(`Error deleting document: ${error.message}`);
+    return true;
   }
 
   /**
@@ -126,27 +140,33 @@ export class DocumentRepository {
    * @param options Query options for pagination
    * @returns List of documents
    */
-  async getUserDocuments(userId: string, options = { page: 1, limit: 10 }): Promise<IDocument[]> {
+  async getUserDocuments(
+    userId: string,
+    options = { page: 1, limit: 10 }
+  ): Promise<IDocument[]> {
     const { data, error } = await supabase
       .from(TABLES.USER_DOCUMENTS)
-      .select(`
+      .select(
+        `
         document_id,
         role,
         ${TABLES.DOCUMENTS}:document_id (*)
-      `)
-      .eq('user_id', userId)
+      `
+      )
+      .eq("user_id", userId)
       .range(
         (options.page - 1) * options.limit,
         options.page * options.limit - 1
-      )
+      );
 
-    if (error) throw new Error(`Error fetching user documents: ${error.message}`)
-    
+    if (error)
+      throw new Error(`Error fetching user documents: ${error.message}`);
+
     // Map the nested structure to a flat list of documents with role
     return data.map((item: Record<string, any>) => ({
       ...item[TABLES.DOCUMENTS],
-      userRole: item.role
-    }))
+      userRole: item.role,
+    }));
   }
 
   /**
@@ -156,20 +176,25 @@ export class DocumentRepository {
    * @param delta The change delta
    * @returns The saved change
    */
-  async saveDocumentChange(documentId: string, userId: string, delta: DeltaChange): Promise<any> {
+  async saveDocumentChange(
+    documentId: string,
+    userId: string,
+    delta: DeltaChange
+  ): Promise<any> {
     const { data, error } = await supabase
       .from(TABLES.DOCUMENT_CHANGES)
       .insert({
         document_id: documentId,
         user_id: userId,
         delta,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       })
-      .select('*')
-      .single()
+      .select("*")
+      .single();
 
-    if (error) throw new Error(`Error saving document change: ${error.message}`)
-    return data
+    if (error)
+      throw new Error(`Error saving document change: ${error.message}`);
+    return data;
   }
 
   /**
@@ -178,19 +203,23 @@ export class DocumentRepository {
    * @param options Query options for pagination
    * @returns List of changes
    */
-  async getDocumentHistory(documentId: string, options = { page: 1, limit: 10 }): Promise<any[]> {
+  async getDocumentHistory(
+    documentId: string,
+    options = { page: 1, limit: 10 }
+  ): Promise<any[]> {
     const { data, error } = await supabase
       .from(TABLES.DOCUMENT_CHANGES)
-      .select('*, user:user_id (name, email)')
-      .eq('document_id', documentId)
-      .order('created_at', { ascending: false })
+      .select("*, user:user_id (name, email)")
+      .eq("document_id", documentId)
+      .order("created_at", { ascending: false })
       .range(
         (options.page - 1) * options.limit,
         options.page * options.limit - 1
-      )
+      );
 
-    if (error) throw new Error(`Error fetching document history: ${error.message}`)
-    return data
+    if (error)
+      throw new Error(`Error fetching document history: ${error.message}`);
+    return data;
   }
 
   /**
@@ -200,27 +229,32 @@ export class DocumentRepository {
    * @param role Access role (viewer, editor, owner)
    * @returns The created user-document relationship
    */
-  async shareDocument(documentId: string, userId: string, role: string): Promise<any> {
+  async shareDocument(
+    documentId: string,
+    userId: string,
+    role: string
+  ): Promise<any> {
     // Check if relationship already exists
     const { data: existing } = await supabase
       .from(TABLES.USER_DOCUMENTS)
-      .select('*')
-      .eq('document_id', documentId)
-      .eq('user_id', userId)
-      .single()
+      .select("*")
+      .eq("document_id", documentId)
+      .eq("user_id", userId)
+      .single();
 
     if (existing) {
       // Update existing relationship if it exists
       const { data, error } = await supabase
         .from(TABLES.USER_DOCUMENTS)
         .update({ role })
-        .eq('document_id', documentId)
-        .eq('user_id', userId)
-        .select('*')
-        .single()
+        .eq("document_id", documentId)
+        .eq("user_id", userId)
+        .select("*")
+        .single();
 
-      if (error) throw new Error(`Error updating document sharing: ${error.message}`)
-      return data
+      if (error)
+        throw new Error(`Error updating document sharing: ${error.message}`);
+      return data;
     } else {
       // Create new relationship
       const { data, error } = await supabase
@@ -229,13 +263,13 @@ export class DocumentRepository {
           document_id: documentId,
           user_id: userId,
           role,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
         })
-        .select('*')
-        .single()
+        .select("*")
+        .single();
 
-      if (error) throw new Error(`Error sharing document: ${error.message}`)
-      return data
+      if (error) throw new Error(`Error sharing document: ${error.message}`);
+      return data;
     }
   }
 
@@ -245,15 +279,19 @@ export class DocumentRepository {
    * @param userId User ID to remove
    * @returns True if access was removed
    */
-  async removeDocumentAccess(documentId: string, userId: string): Promise<boolean> {
+  async removeDocumentAccess(
+    documentId: string,
+    userId: string
+  ): Promise<boolean> {
     const { error } = await supabase
       .from(TABLES.USER_DOCUMENTS)
       .delete()
-      .eq('document_id', documentId)
-      .eq('user_id', userId)
+      .eq("document_id", documentId)
+      .eq("user_id", userId);
 
-    if (error) throw new Error(`Error removing document access: ${error.message}`)
-    return true
+    if (error)
+      throw new Error(`Error removing document access: ${error.message}`);
+    return true;
   }
 
   /**
@@ -264,11 +302,12 @@ export class DocumentRepository {
   async getDocumentUsers(documentId: string): Promise<any[]> {
     const { data, error } = await supabase
       .from(TABLES.USER_DOCUMENTS)
-      .select('*, user:user_id (*)')
-      .eq('document_id', documentId)
+      .select("*, user:user_id (*)")
+      .eq("document_id", documentId);
 
-    if (error) throw new Error(`Error fetching document users: ${error.message}`)
-    return data
+    if (error)
+      throw new Error(`Error fetching document users: ${error.message}`);
+    return data;
   }
 
   /**
@@ -278,7 +317,11 @@ export class DocumentRepository {
    * @param userName The user's name
    * @returns void
    */
-  public async addUserToDocument(documentId: string, socketId: string, userName: string): Promise<void> {
+  public async addUserToDocument(
+    documentId: string,
+    socketId: string,
+    userName: string
+  ): Promise<void> {
     // Check if document exists
     const document = await this.getDocumentById(documentId);
     if (!document) {
@@ -289,7 +332,7 @@ export class DocumentRepository {
     // Note: This is now handled in the service layer with the activeUsers object
 
     // For backwards compatibility with older code, we'll still store the user-document relationship
-    await this.shareDocument(documentId, socketId, 'editor');
+    await this.shareDocument(documentId, socketId, "editor");
   }
 
   /**
@@ -318,7 +361,7 @@ export class DocumentRepository {
       delta,
       userId: socketId,
       userName,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // Update the document content

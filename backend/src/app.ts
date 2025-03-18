@@ -131,6 +131,7 @@ const setupSocketHandlers = () => {
     // Authentication middleware for Socket.IO
     socket.use(async ([event, ...args], next) => {
       console.log("Socket event:", event);
+      console.log("Socket args:", args);
       // Skip auth check during tests
       if (isTest) {
         return next();
@@ -142,9 +143,12 @@ const setupSocketHandlers = () => {
       }
 
       // Check token in handshake auth
+      //to-do: remove this for production
       const token = socket.handshake.auth.token;
       if (!token) {
-        return next(new Error("Authentication required"));
+        console.log("No token provided, but proceeding anyway for development");
+        return next();
+        // Instead of: return next(new Error("Authentication required"));
       }
 
       try {
@@ -190,32 +194,34 @@ const setupSocketHandlers = () => {
 
     socket.on(
       "create-document",
-      async (callback: (documentId: string) => void) => {
-        console.log("Creating new document...");
+      async (userId: string, callback: (documentId: string) => void) => {
+        console.log("Creating new document for:", userId);
         try {
-          // Get authenticated user ID if available
-          const userId = (socket as any).userId;
-          // Create document with optional user ID
+          // Create document with the provided user ID
           const result = await documentService.createDocument(
             "Untitled Document",
             { ops: [] },
             userId
           );
+          console.log("Document created with ID:", result.id);
           callback(result.id);
         } catch (error) {
           console.error("Error creating document:", error);
           callback(
-            error instanceof Error ? error.message : "An error occurred"
+            error instanceof Error
+              ? `Error: ${error.message}`
+              : "Error: An unknown error occurred"
           );
         }
       }
     );
 
     socket.on("join-document", async (documentId: string, userName: string) => {
+      console.log("Joining document:", documentId);
       console.log("User joining document:", documentId);
       socket.join(documentId);
 
-      console.log("User joined document:", documentId);
+      console.log("User joined document: 👌", documentId);
 
       // If authenticated, get the actual user data
       const userId = (socket as any).userId;

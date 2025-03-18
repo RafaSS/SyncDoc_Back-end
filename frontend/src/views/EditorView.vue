@@ -50,6 +50,7 @@ onMounted(() => {
 
     // Join the document
     documentStore.joinDocument(documentId.value);
+    console.log("Joined document:", route.params);
   }
 
   // Update document title in page title

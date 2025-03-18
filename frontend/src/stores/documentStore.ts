@@ -1,213 +1,187 @@
+// documentStore.ts
 import { defineStore } from "pinia";
-import { ref } from "vue";
-import { io, Socket } from "socket.io-client";
-import type { Delta } from "../types";
-
-interface DocumentState {
-  id: string;
-  title: string;
-  content: any;
-  users: Record<string, string>;
-}
+import { ref, reactive } from "vue";
+import { SocketService } from "../services/socketService.ts";
+import type { Document, Delta, CursorPosition } from "../types";
+import type { Socket } from "socket.io-client";
 
 export const useDocumentStore = defineStore("document", () => {
   // State
-  const socket = ref<Socket | null>(null);
+  const socketService = new SocketService();
   const userId = ref<string>(
     localStorage.getItem("userId") || generateUserId()
   );
-  const connected = ref<boolean>(false);
-  const document = ref<DocumentState>({
+  const document = reactive<Document>({
     id: "",
     title: "Untitled Document",
-    content: { ops: [] },
+    content: null,
     users: {},
+    deltas: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ownerId: null,
   });
-  const documentHistory = ref<
-    Array<{
-      delta: Delta;
-      userId: string;
-      userName: string;
-      timestamp: number;
-    }>
-  >([]);
-  const userColors = ref<Record<string, string>>({});
+  const documentHistory = ref<any[]>([]);
+  const userColors = reactive<Record<string, string>>({});
 
-  // Actions
-  function initializeSocket(baseUrl: string) {
-    socket.value = io(baseUrl);
+  // Initialize socket once
+  function initializeSocket(url: string) {
+    const socket = socketService.connect(url);
+    setupSocketHandlers(socket);
+    return socket;
+  }
 
-    socket.value.on("connect", () => {
-      connected.value = true;
+  // Socket event handlers
+  function setupSocketHandlers(socket: Socket) {
+    socket.on("load-document", (content: any) => {
+      document.content = content;
     });
 
-    socket.value.on("disconnect", () => {
-      connected.value = false;
+    socket.on("document-title", (title: string) => {
+      document.title = title;
     });
 
-    socket.value.on("auth", (error: string | null, data?: any) => {
-      if (error) {
-        console.error("Authentication error:", error);
-      }
+    socket.on("user-list", (users: Record<string, string>) => {
+      document.users = users;
+      updateUserColors(Object.keys(users));
     });
 
-    socket.value.on("create-document", (documentId: string) => {
-      document.value.id = documentId;
-      document.value.title = "Untitled Document";
-      document.value.content = { ops: [] };
-      document.value.users = {};
-    });
-
-    socket.value.on("load-document", (content: any) => {
-      document.value.content = content;
-    });
-
-    socket.value.on("join-document", (documentId: string) => {
-      document.value.id = documentId;
-      socket.value?.emit("join-document", documentId, userId.value);
-      socket.value?.emit("load-document", documentId);
-    });
-
-    socket.value.on("title-change", (documentId: string, title: string) => {
-      document.value.id = documentId;
-      document.value.title = title;
-    });
-
-    socket.value.on("text-change", (documentId: string, delta: Delta) => {
-      document.value.id = documentId;
-      document.value.content = delta;
-    });
-
-    socket.value.on("cursor-move", (documentId: string, range: any) => {
-      document.value.id = documentId;
-      document.value.content = range;
-    });
-
-    socket.value.on("user-join", (documentId: string, userName: string) => {
-      document.value.id = documentId;
-      document.value.users[userName] = userName;
-    });
-
-    socket.value.on("user-leave", (documentId: string, userName: string) => {
-      document.value.id = documentId;
-      delete document.value.users[userName];
-    });
-
-    socket.value.on("document-history", (history: any[]) => {
+    socket.on("document-history", (history: any[]) => {
       documentHistory.value = history;
     });
-    //on load-document
-    socket.value.on("load-document", (content: any) => {
-      console.log("Loading document content:", content);
-      document.value.content = content;
-    });
-
-    // Store userId in localStorage
-    localStorage.setItem("userId", userId.value);
-
-    return socket.value;
   }
 
+  // Actions
   function joinDocument(documentId: string) {
-    if (!socket.value || !connected.value) return;
+    if (!socketService.socket) return;
 
-    document.value.id = documentId;
-    socket.value.emit("join-document", documentId, userId.value);
+    document.id = documentId;
+    const userName = localStorage.getItem("userName") || "Anonymous";
+    socketService.socket.emit("join-document", documentId, userName);
   }
 
-  function updateTitle(title: string) {
-    if (!socket.value || !connected.value) return;
+  async function createNewDocument() {
+    if (!socketService.socket) return null;
 
-    document.value.title = title;
-    socket.value.emit("title-change", document.value.id, title);
+    return new Promise<string>((resolve, reject) => {
+      console.log("Creating new document for:", userId.value);
+      socketService.socket?.emit(
+        "create-document",
+        userId.value,
+        (documentId: string) => {
+          if (typeof documentId === "string" && documentId.includes("Error")) {
+            console.error("Error creating document:", documentId);
+            reject(documentId);
+            return;
+          }
+          console.log("Document created with ID:", documentId);
+          resolve(documentId);
+        }
+      );
+    });
   }
 
   function sendTextChange(delta: Delta, source: string, content: any) {
-    if (!socket.value || !connected.value || source !== "user") return;
+    if (!socketService.socket) return;
 
-    socket.value.emit(
+    socketService.socket.emit(
       "text-change",
-      document.value.id,
+      document.id,
       delta,
       source,
       JSON.stringify(content)
     );
   }
-
   function updateContent(content: any) {
-    document.value.content = content;
-  }
+    if (!socketService.socket) return;
 
-  function moveCursor(range: any) {
-    if (!socket.value || !connected.value) return;
-
-    socket.value.emit("cursor-move", document.value.id, range);
-  }
-
-  async function createNewDocument() {
-    socket.value?.emit("test");
-    console.log("Creating new document...", socket.value, connected.value);
-    if (!socket.value || !connected.value) return null;
-
-    const result = socket.value!.emit(
-      "create-document",
-      (documentId: string) => {
-        return documentId;
-      }
-    );
-
-    console.log("Result:", result);
-    return result;
+    document.content = content;
+    socketService.socket.emit("content-change", document.id, content);
   }
 
   function updateUserList(users: Record<string, string>) {
-    document.value.users = users;
+    if (!socketService.socket) return;
 
-    // Assign colors to users if not already assigned
-    Object.keys(users).forEach((id) => {
-      if (!userColors.value[id]) {
-        userColors.value[id] = getRandomColor();
+    document.users = users;
+    socketService.socket.emit("user-list", document.id, users);
+  }
+
+  function updateDocumentHistory(history: any[]) {
+    if (!socketService.socket) return;
+
+    documentHistory.value = history;
+    socketService.socket.emit("document-history", document.id, history);
+  }
+
+  function updateTitle(title: string) {
+    if (!socketService.socket) return;
+
+    document.title = title;
+    socketService.socket.emit("title-change", document.id, title);
+  }
+
+  function moveCursor(position: CursorPosition) {
+    if (!socketService.socket) return;
+
+    socketService.socket.emit("cursor-move", document.id, position);
+  }
+
+  function leaveDocument() {
+    if (!socketService.socket) return;
+
+    socketService.socket.emit("leave-document", document.id);
+    resetDocument();
+  }
+
+  // Helper functions
+  function resetDocument() {
+    document.id = "";
+    document.title = "Untitled Document";
+    document.content = null;
+    document.users = {};
+    documentHistory.value = [];
+  }
+
+  function generateUserId(): string {
+    const id = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("userId", id);
+    return id;
+  }
+
+  function updateUserColors(userIds: string[]) {
+    const colors = [
+      "#f44336",
+      "#e91e63",
+      "#9c27b0",
+      "#673ab7",
+      "#3f51b5",
+      "#2196f3",
+      "#03a9f4",
+    ];
+
+    userIds.forEach((id, index) => {
+      if (!userColors[id]) {
+        userColors[id] = colors[index % colors.length];
       }
     });
   }
 
-  function updateDocumentHistory(history: any[]) {
-    documentHistory.value = history;
-  }
-
-  // Helper functions
-  function generateUserId(): string {
-    return Math.random().toString(36).substring(2, 15);
-  }
-
-  function getRandomColor(): string {
-    const colors = [
-      "#4285F4",
-      "#EA4335",
-      "#FBBC05",
-      "#34A853",
-      "#673AB7",
-      "#FF5722",
-      "#00BCD4",
-      "#795548",
-    ];
-    return colors[Math.floor(Math.random() * colors.length)];
-  }
-
   return {
-    socket,
     userId,
-    connected,
     document,
     documentHistory,
     userColors,
+    connected: socketService.connected,
+    socket: socketService.socket,
+    updateContent,
     initializeSocket,
     joinDocument,
-    updateTitle,
-    sendTextChange,
-    updateContent,
-    moveCursor,
     createNewDocument,
+    sendTextChange,
+    updateTitle,
+    moveCursor,
+    leaveDocument,
+    updateUserColors,
     updateUserList,
     updateDocumentHistory,
   };
