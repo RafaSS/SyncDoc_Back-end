@@ -3,15 +3,11 @@ import { defineStore } from "pinia";
 import { ref, reactive } from "vue";
 import { SocketService } from "../services/socketService.ts";
 import type { Document, Delta, CursorPosition } from "../types";
-import type { Socket } from "socket.io-client";
-import { v4 as uuidv4 } from "uuid";
 
 export const useDocumentStore = defineStore("document", () => {
   // State
   const socketService = new SocketService();
-  const userId = ref<string>(
-    localStorage.getItem("userId") || generateUserId()
-  );
+  const userId = ref(generateUserId());
   const document = reactive<Document>({
     id: "",
     title: "Untitled Document",
@@ -20,20 +16,24 @@ export const useDocumentStore = defineStore("document", () => {
     deltas: [],
     createdAt: new Date(),
     updatedAt: new Date(),
-    ownerId: null,
   });
+
   const documentHistory = ref<any[]>([]);
-  const userColors = reactive<Record<string, string>>({});
+  const userColors: Record<string, string> = {};
 
   // Initialize socket once
   function initializeSocket(url: string) {
-    const socket = socketService.connect(url);
-    setupSocketHandlers(socket);
-    return socket;
+    if (!socketService.socket) {
+      socketService.connect(url);
+      const socket = socketService.socket;
+      if (socket) {
+        setupSocketHandlers(socket);
+      }
+    }
   }
 
   // Socket event handlers
-  function setupSocketHandlers(socket: Socket) {
+  function setupSocketHandlers(socket: any) {
     socket.on("load-document", (content: any) => {
       document.content = content;
     });
@@ -50,40 +50,56 @@ export const useDocumentStore = defineStore("document", () => {
     socket.on("document-history", (history: any[]) => {
       documentHistory.value = history;
     });
+
+    // Set up authentication handler
+    socket.on(
+      "auth-result",
+      (result: { authenticated: boolean; userId: string }) => {
+        if (result.authenticated && result.userId) {
+          userId.value = result.userId;
+        }
+      }
+    );
   }
 
   // Actions
   function joinDocument(documentId: string) {
     if (!socketService.socket) return;
-
+    console.log("Joining document:", documentId, userId.value);
     document.id = documentId;
     const userName = localStorage.getItem("userName") || "Anonymous";
-    socketService.socket.emit("join-document", documentId, userName);
+    socketService.socket.emit(
+      "join-document",
+      documentId,
+      userName,
+      userId.value
+    );
   }
 
   async function createNewDocument() {
-    if (!socketService.socket) return null;
+    if (!socketService.socket) return;
 
-    return new Promise<string>((resolve, reject) => {
-      console.log("Creating new document for:", userId.value);
-      socketService.socket?.emit(
+    return new Promise((resolve, reject) => {
+      socketService.socket!.emit(
         "create-document",
         userId.value,
-        (documentId: string) => {
-          if (typeof documentId === "string" && documentId.includes("Error")) {
-            console.error("Error creating document:", documentId);
-            reject(documentId);
-            return;
+        (response: string) => {
+          if (response.startsWith("Error:")) {
+            console.error("Error creating document:", response);
+            reject(new Error(response));
+          } else {
+            console.log("Document created with ID:", response);
+            resetDocument();
+            document.id = response;
+            resolve(response);
           }
-          console.log("Document created with ID:", documentId);
-          resolve(documentId);
         }
       );
     });
   }
 
   function sendTextChange(delta: Delta, source: string, content: any) {
-    if (!socketService.socket) return;
+    if (!socketService.socket || !document.id) return;
 
     socketService.socket.emit(
       "text-change",
@@ -93,43 +109,33 @@ export const useDocumentStore = defineStore("document", () => {
       JSON.stringify(content)
     );
   }
-  function updateContent(content: any) {
-    if (!socketService.socket) return;
 
-    document.content = content;
-    socketService.socket.emit("content-change", document.id, content);
+  function updateContent(content: any) {
+    if (content) {
+      document.content = content;
+    }
   }
 
   function updateUserList(users: Record<string, string>) {
-    if (!socketService.socket) return;
-
     document.users = users;
-    socketService.socket.emit("user-list", document.id, users);
+    updateUserColors(Object.keys(users));
   }
 
   function updateDocumentHistory(history: any[]) {
-    if (!socketService.socket) return;
-
     documentHistory.value = history;
-    socketService.socket.emit("document-history", document.id, history);
   }
 
   function updateTitle(title: string) {
-    if (!socketService.socket) return;
-
     document.title = title;
-    socketService.socket.emit("title-change", document.id, title);
   }
 
   function moveCursor(position: CursorPosition) {
-    if (!socketService.socket) return;
-
+    if (!socketService.socket || !document.id) return;
     socketService.socket.emit("cursor-move", document.id, position);
   }
 
   function leaveDocument() {
-    if (!socketService.socket) return;
-
+    if (!socketService.socket || !document.id) return;
     socketService.socket.emit("leave-document", document.id);
     resetDocument();
   }
@@ -144,27 +150,40 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   function generateUserId(): string {
-    //use uuid to generate a random id
-    const id = uuidv4();
-    localStorage.setItem("userId", id);
-    return id;
+    const storedId = localStorage.getItem("userId");
+    if (storedId) return storedId;
+
+    const newId = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("userId", newId);
+    return newId;
   }
 
   function updateUserColors(userIds: string[]) {
-    const colors = [
-      "#f44336",
-      "#e91e63",
-      "#9c27b0",
-      "#673ab7",
-      "#3f51b5",
-      "#2196f3",
-      "#03a9f4",
-    ];
-
-    userIds.forEach((id, index) => {
+    userIds.forEach((id) => {
       if (!userColors[id]) {
-        userColors[id] = colors[index % colors.length];
+        userColors[id] = `#${Math.floor(Math.random() * 16777215).toString(
+          16
+        )}`;
       }
+    });
+  }
+
+  // Authentication
+  function authenticateUser(token: string) {
+    if (!socketService.socket) return;
+
+    return new Promise((resolve, reject) => {
+      socketService.socket!.emit(
+        "auth",
+        token,
+        (error: string | null, data?: any) => {
+          if (error) {
+            reject(new Error(error));
+          } else {
+            resolve(data);
+          }
+        }
+      );
     });
   }
 
@@ -186,5 +205,6 @@ export const useDocumentStore = defineStore("document", () => {
     updateUserColors,
     updateUserList,
     updateDocumentHistory,
+    authenticateUser,
   };
 });

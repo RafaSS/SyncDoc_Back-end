@@ -48,7 +48,10 @@ export class DocumentRepository {
           created_at: new Date().toISOString(),
         });
 
-      console.log("User document association created:", userDocError);
+      console.log(
+        "User document association created:",
+        userDocError ? userDocError.message : "success"
+      );
 
       // if (userDocError) {
       //   // Attempt to clean up the document if user association fails
@@ -227,6 +230,17 @@ export class DocumentRepository {
         .single();
 
       if (error) {
+        console.error(
+          "Failed to save document change:",
+          "user_id",
+          userId,
+          "document_id",
+          documentId,
+          "delta",
+          delta,
+          "error",
+          error
+        );
         throw new Error(`Error saving document change: ${error.message}`);
       }
 
@@ -282,6 +296,7 @@ export class DocumentRepository {
     role: string
   ): Promise<any> {
     try {
+      console.log("Sharing document with user:", userId);
       // Check if relationship already exists
       const { data: existing } = await supabase
         .from(TABLES.USER_DOCUMENTS)
@@ -306,6 +321,17 @@ export class DocumentRepository {
 
         return data;
       } else {
+        //check if user exists
+        const { data: user } = await supabase
+          .from(TABLES.USERS)
+          .select("*")
+          .eq("id", userId)
+          .single();
+
+        if (!user) {
+          throw new Error(`User ${userId} not found`);
+        }
+
         // Create new relationship
         const { data, error } = await supabase
           .from(TABLES.USER_DOCUMENTS)
@@ -319,7 +345,7 @@ export class DocumentRepository {
           .single();
 
         if (error) {
-          console.log(error, "🤬");
+          // console.log(error, "🤬");
           throw new Error(`Error sharing document: ${error.message}`);
         }
 
@@ -427,7 +453,8 @@ export class DocumentRepository {
     content: string,
     delta: Delta,
     socketId: string,
-    userName: string
+    userName: string,
+    userId: string
   ): Promise<void> {
     try {
       const document = await this.getDocumentById(documentId);
@@ -436,9 +463,9 @@ export class DocumentRepository {
       }
 
       // Save the document change
-      await this.saveDocumentChange(documentId, socketId, {
+      await this.saveDocumentChange(documentId, userId, {
         delta,
-        userId: socketId,
+        userId,
         userName,
         timestamp: Date.now(),
       });

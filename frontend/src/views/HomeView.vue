@@ -20,7 +20,7 @@ onMounted(async () => {
     // Fetch documents from API
     const response = await fetch(
       `${
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api"
+        import.meta.env.VITE_API_BASE_URL || "http://localhost:10000/api"
       }/documents`
     );
     documents.value = await response.json();

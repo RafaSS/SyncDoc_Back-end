@@ -1,5 +1,9 @@
-import { supabase } from '../config/supabase';
-import { IAuthResponse, IUserCredentials, IUserRegistration } from '../interfaces/user.interface';
+import { supabase } from "../config/supabase";
+import {
+  IAuthResponse,
+  IUserCredentials,
+  IUserRegistration,
+} from "../interfaces/user.interface";
 
 /**
  * Repository class for authentication operations using Supabase
@@ -17,9 +21,9 @@ export class AuthRepository {
       password: userData.password,
       options: {
         data: {
-          username: userData.username
-        }
-      }
+          username: userData.username,
+        },
+      },
     });
 
     if (authError) {
@@ -27,22 +31,20 @@ export class AuthRepository {
     }
 
     if (!authData.user) {
-      throw new Error('Registration successful but user data is missing');
+      throw new Error("Registration successful but user data is missing");
     }
 
     // Create user profile in users table
-    const { error: profileError } = await supabase
-      .from('users')
-      .insert({
-        id: authData.user.id,
-        name: userData.username,
-        email: userData.email,
-        is_online: true
-      });
+    const { error: profileError } = await supabase.from("users").insert({
+      id: authData.user.id,
+      name: userData.username,
+      email: userData.email,
+      is_online: true,
+    });
 
     if (profileError) {
       // User was created in auth but profile creation failed
-      console.error('Failed to create user profile:', profileError);
+      console.error("Failed to create user profile:", profileError);
       // Attempt to delete the auth user
       await supabase.auth.admin.deleteUser(authData.user.id);
       throw new Error(`Failed to create user profile: ${profileError.message}`);
@@ -54,9 +56,9 @@ export class AuthRepository {
         username: userData.username,
         email: userData.email,
         createdAt: new Date(authData.user.created_at || Date.now()),
-        updatedAt: new Date(authData.user.updated_at || Date.now())
+        updatedAt: new Date(authData.user.updated_at || Date.now()),
       },
-      token: authData.session?.access_token || ''
+      token: authData.session?.access_token || "",
     };
   }
 
@@ -67,36 +69,37 @@ export class AuthRepository {
    */
   async login(credentials: IUserCredentials): Promise<IAuthResponse> {
     // Login with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: credentials.email,
-      password: credentials.password
-    });
+    const { data: authData, error: authError } =
+      await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
 
     if (authError) {
       throw new Error(`Login failed: ${authError.message}`);
     }
 
     if (!authData.user) {
-      throw new Error('Login successful but user data is missing');
+      throw new Error("Login successful but user data is missing");
     }
 
     // Get user profile from database
     const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
+      .from("users")
+      .select("*")
+      .eq("id", authData.user.id)
       .single();
 
     if (userError) {
-      console.error('Failed to retrieve user profile:', userError);
+      console.error("Failed to retrieve user profile:", userError);
       throw new Error(`Failed to retrieve user profile: ${userError.message}`);
     }
 
     // Update user online status
     await supabase
-      .from('users')
+      .from("users")
       .update({ is_online: true, last_active: new Date().toISOString() })
-      .eq('id', authData.user.id);
+      .eq("id", authData.user.id);
 
     return {
       user: {
@@ -104,9 +107,9 @@ export class AuthRepository {
         username: userData.name,
         email: userData.email,
         createdAt: new Date(userData.created_at),
-        updatedAt: new Date(userData.updated_at)
+        updatedAt: new Date(userData.updated_at),
       },
-      token: authData.session?.access_token || ''
+      token: authData.session?.access_token || "",
     };
   }
 
@@ -126,11 +129,11 @@ export class AuthRepository {
    */
   async verifyToken(token: string): Promise<string | null> {
     const { data, error } = await supabase.auth.getUser(token);
-    
+
     if (error || !data.user) {
       return null;
     }
-    
+
     return data.user.id;
   }
 
@@ -152,9 +155,9 @@ export class AuthRepository {
    */
   async resetPassword(newPassword: string): Promise<boolean> {
     const { error } = await supabase.auth.updateUser({
-      password: newPassword
+      password: newPassword,
     });
-    
+
     return !error;
   }
 
@@ -162,31 +165,34 @@ export class AuthRepository {
    * Get current logged in user
    * @returns User data if logged in, null otherwise
    */
-  async getCurrentUser(): Promise<Omit<IAuthResponse['user'], 'password'> | null> {
+  async getCurrentUser(): Promise<Omit<
+    IAuthResponse["user"],
+    "password"
+  > | null> {
     const { data, error } = await supabase.auth.getUser();
-    
+
     if (error || !data.user) {
       return null;
     }
-    
+
     // Get user profile from database
     const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', data.user.id)
+      .from("users")
+      .select("*")
+      .eq("id", data.user.id)
       .single();
-      
+
     if (userError) {
-      console.error('Failed to retrieve user profile:', userError);
+      console.error("Failed to retrieve user profile:", userError);
       return null;
     }
-    
+
     return {
       id: data.user.id,
       username: userData.name,
       email: userData.email,
       createdAt: new Date(userData.created_at),
-      updatedAt: new Date(userData.updated_at)
+      updatedAt: new Date(userData.updated_at),
     };
   }
 }

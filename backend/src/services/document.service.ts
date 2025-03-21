@@ -94,14 +94,15 @@ export class DocumentService implements IDocumentService {
     delta: Delta,
     socketId: string,
     userName: string,
-    userId?: string
+    userId: string
   ): Promise<void> {
     return this.documentRepository.updateDocumentContent(
       documentId,
       content,
       delta,
       socketId,
-      userName
+      userName,
+      userId
     );
   }
 
@@ -116,12 +117,13 @@ export class DocumentService implements IDocumentService {
     documentId: string,
     socketId: string,
     userName: string,
-    userId?: string
+    userId: string
   ): Promise<void> {
     await this.documentRepository.addUserToDocument(
       documentId,
       socketId,
-      userName
+      userName,
+      userId
     );
 
     // If user is authenticated, add them to document permissions
@@ -188,8 +190,36 @@ export class DocumentService implements IDocumentService {
       return false;
     }
 
-    await this.documentRepository.removeDocumentAccess(documentId, userId);
-    return true;
+    // Check if the id is a socket id (stored in document.users)
+    if (document.users && document.users[userId]) {
+      // It's a socket ID, remove from the users object
+      const { [userId]: removedUser, ...remainingUsers } = document.users;
+      await this.documentRepository.updateDocument(documentId, {
+        users: remainingUsers,
+      });
+      return true;
+    }
+
+    // Otherwise treat it as a regular user ID and remove from permissions
+    try {
+      const { error } = await supabase
+        .from(TABLES.USER_DOCUMENTS)
+        .delete()
+        .eq("document_id", documentId)
+        .eq("user_id", userId);
+
+      if (error) {
+        throw new Error(`Error removing document access: ${error.message}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        `Failed to remove user ${userId} from document ${documentId}:`,
+        error
+      );
+      return false;
+    }
   }
 
   public async getDocumentUsers(

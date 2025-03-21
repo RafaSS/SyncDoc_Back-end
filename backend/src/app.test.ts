@@ -46,7 +46,7 @@ describe("SyncDoc API", () => {
 
     // Patch the authentication middleware directly
     patchAuthForTesting(app);
-    
+
     // Create an authenticated request agent
     request = supertest(app);
   });
@@ -115,7 +115,8 @@ describe("SyncDoc API", () => {
       JSON.stringify({ ops: [{ insert: "Updated content" }] }),
       { ops: [{ insert: "Updated content" }] },
       "test-socket-id",
-      "Test User"
+      "Test User",
+      "test-user-id"
     );
 
     const response = await request
@@ -140,12 +141,12 @@ describe("SyncDoc API", () => {
 describe("Document Management", () => {
   // Create an authenticated agent for API requests
   let request: any;
-  
+
   beforeAll(() => {
     // Create an authenticated request agent
     request = supertest(app);
   });
-  
+
   test("Document service exists", () => {
     expect(mockDocumentService).toBeDefined();
   });
@@ -170,7 +171,12 @@ describe("Document Management", () => {
     const id = result.id;
     const userName = "test-user-" + Math.floor(Math.random() * 10000);
 
-    await mockDocumentService.addUserToDocument(id, "socket-id", userName);
+    await mockDocumentService.addUserToDocument(
+      id,
+      "socket-id",
+      userName,
+      "test-user-id"
+    );
 
     const users = await mockDocumentService.getDocumentUsers(id);
     expect(Object.keys(users)).toBeDefined();

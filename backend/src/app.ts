@@ -1,24 +1,16 @@
+//app.ts
 /*
  * SyncDoc Application - Built with Bun
  * Supabase Database Integration with Authentication
  */
 
 import express from "express";
-import { Server } from "socket.io";
-import { v4 as uuidv4 } from "uuid";
 import cookieParser from "cookie-parser";
-import path from "path";
 import dotenv from "dotenv";
 import * as http from "http";
 import cors from "cors";
-import { createServices } from "./config/service-factory";
-import { Delta, DeltaChange } from "./interfaces/delta.interface";
+import { createServices, Services } from "./config/service-factory";
 import { authRoutes, documentRoutes, userRoutes } from "./routes";
-import {
-  isAuthenticated,
-  hasDocumentPermission,
-} from "./middleware/auth.middleware";
-import { supabase } from "./config/supabase";
 
 // Load the appropriate .env file based on the environment
 const isTest = process.env.NODE_ENV === "test";
@@ -43,7 +35,7 @@ if (isTest) {
   services = createServices();
 }
 
-const { documentService, authService } = services;
+const { socketService } = services as Services;
 
 const app = express();
 
@@ -55,7 +47,6 @@ console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
 
 // Get port from environment variable or use default
 const PORT = isTest ? process.env.TEST_PORT || 3003 : process.env.PORT || 3000;
-
 const SOCKET_PORT = isTest
   ? process.env.TEST_SOCKET_PORT || 3002
   : process.env.SOCKET_PORT || 3001;
@@ -64,12 +55,12 @@ const SOCKET_PORT = isTest
 export const expressPort = PORT;
 export const socketPort = SOCKET_PORT;
 
+// Get or create the socket.io server
 let server: http.Server | null = null;
-let io: Server;
 let expressServer: http.Server | null = null;
 
 // Export variables for testing
-export { io, server, app as expressApp };
+export { server, app as expressApp };
 
 // In-memory cache of connected users (socketId -> document data)
 const activeUsers: {
@@ -77,29 +68,17 @@ const activeUsers: {
 } = {};
 
 const startServer = () => {
-  if (server) return;
+  if (server) return server;
 
-  // Create HTTP server for Socket.IO
-  server = http.createServer();
+  // Get the HTTP server that Socket.IO is using
+  server = (socketService as any).io.httpServer || http.createServer();
 
-  io = new Server(server, {
-    cors: {
-      origin: [
-        "http://localhost:3000",
-        "https://your-frontend-url.com",
-        "http://localhost:5173",
-      ],
-      methods: ["GET", "POST"],
-      allowedHeaders: ["Authorization"],
-      credentials: true,
-    },
-  });
-
-  // Initialize socket handlers
-  setupSocketHandlers();
+  // Initialize socket handlers (if not already initialized)
+  socketService.setupSocketHandlers();
+  console.log("🚀 Socket handlers initialized");
 
   // Start the Socket.IO server
-  server.listen(SOCKET_PORT, () => {
+  server?.listen(SOCKET_PORT, () => {
     console.log(`Socket.IO server running on port ${SOCKET_PORT}`);
   });
 
@@ -122,236 +101,8 @@ export const startExpressServer = () => {
   return expressServer;
 };
 
-const setupSocketHandlers = () => {
-  if (!io) return;
-
-  io.on("connection", (socket) => {
-    console.log("New user connected:", socket.id);
-
-    // Authentication middleware for Socket.IO
-    socket.use(async ([event, ...args], next) => {
-      console.log("Socket event:", event);
-      console.log("Socket args:", args);
-      // Skip auth check during tests
-      if (isTest) {
-        return next();
-      }
-
-      // Skip auth for certain events
-      if (event === "auth") {
-        return next();
-      }
-
-      // Check token in handshake auth
-      //to-do: remove this for production
-      const token = socket.handshake.auth.token;
-      if (!token) {
-        console.log("No token provided, but proceeding anyway for development");
-        return next();
-        // Instead of: return next(new Error("Authentication required"));
-      }
-
-      try {
-        const { data, error } = await supabase.auth.getUser(token);
-        if (error || !data.user) {
-          return next(new Error("Invalid token"));
-        }
-
-        // Store user ID in the socket for later use
-        (socket as any).userId = data.user.id;
-        next();
-      } catch (error) {
-        next(new Error("Authentication error"));
-      }
-    });
-
-    // Handle authentication
-    socket.on(
-      "auth",
-      async (
-        token: string,
-        callback: (error: string | null, data?: any) => void
-      ) => {
-        console.log("Authenticating user...");
-        try {
-          const { data, error } = await supabase.auth.getUser(token);
-          if (error || !data.user) {
-            return callback("Invalid token");
-          }
-
-          // Store user ID in the socket
-          (socket as any).userId = data.user.id;
-          callback(null, { authenticated: true, userId: data.user.id });
-        } catch (error: any) {
-          callback(error.message || "Authentication error");
-        }
-      }
-    );
-
-    socket.on("test", () => {
-      console.log("Test event received");
-    });
-
-    socket.on(
-      "create-document",
-      async (userId: string, callback: (documentId: string) => void) => {
-        console.log("Creating new document for:", userId);
-        try {
-          // Create document with the provided user ID
-          const result = await documentService.createDocument(
-            "Untitled Document",
-            { ops: [] },
-            userId
-          );
-          console.log("Document created with ID:", result.id);
-          callback(result.id);
-        } catch (error) {
-          console.error("Error creating document:", error);
-          callback(
-            error instanceof Error
-              ? `Error: ${error.message}`
-              : "Error: An unknown error occurred"
-          );
-        }
-      }
-    );
-
-    socket.on("join-document", async (documentId: string, userName: string) => {
-      console.log("Joining document:", documentId);
-      console.log("User joining document:", documentId);
-      socket.join(documentId);
-
-      console.log("User joined document: 👌", documentId, userName);
-
-      // If authenticated, get the actual user data
-      const userId = (socket as any).userId;
-
-      // Store user in active users cache
-      activeUsers[socket.id] = {
-        documentId,
-        userName,
-        userId,
-      };
-
-      // Get document from database or create if it doesn't exist
-      let document = await documentService.getDocumentById(documentId);
-
-      if (!document) {
-        // Create a new document if it doesn't exist
-        const result = await documentService.createDocument();
-        documentId = result.id;
-        document = await documentService.getDocumentById(documentId);
-        console.log("Created new document:", documentId);
-        // Update room to the new document ID
-        socket.leave(documentId);
-        socket.join(documentId);
-      }
-
-      console.log("Joined document:", documentId);
-
-      // Add user to document
-      await documentService.addUserToDocument(
-        documentId,
-        socket.id,
-        userName,
-        userId
-      );
-
-      // Get the document content
-      if (document && document.content) {
-        console.log("Sending document content:", document.content);
-        socket.emit("load-document", document.content);
-      } else {
-        // If no content exists, send an empty delta
-        console.log("Sending empty document content");
-        socket.emit("load-document", JSON.stringify({ ops: [] }));
-      }
-
-      // Get users in the document
-      const users = await documentService.getDocumentUsers(documentId);
-
-      // Notify others that user joined
-      socket.to(documentId).emit("user-joined", socket.id, userName);
-
-      // Send updated user list to all clients in room
-      io.to(documentId).emit("user-list", users);
-
-      console.log(
-        `User ${userName} (${
-          userId || "anonymous"
-        }) joined document ${documentId}`
-      );
-    });
-
-    socket.on(
-      "text-change",
-      async (
-        documentId: string,
-        delta: Delta,
-        source: string,
-        content: string
-      ) => {
-        if (source !== "user" || !activeUsers[socket.id]) return;
-
-        const userName = activeUsers[socket.id].userName;
-        const userId = activeUsers[socket.id].userId;
-
-        // Update document content in database
-        await documentService.updateDocumentContent(
-          documentId,
-          content,
-          delta,
-          socket.id,
-          userName,
-          userId
-        );
-
-        // Send the delta to all other clients in the room
-        socket.to(documentId).emit("text-change", delta, socket.id, content);
-
-        console.log(
-          `Document ${documentId} updated by ${userName || "unknown user"}`
-        );
-      }
-    );
-
-    socket.on("title-change", async (documentId: string, title: string) => {
-      // Update title in database
-      await documentService.updateDocumentTitle(documentId, title);
-
-      // Broadcast title change to all clients
-      io.to(documentId).emit("title-change", title);
-    });
-
-    socket.on("cursor-move", (documentId: string, cursorPosition: any) => {
-      socket.to(documentId).emit("cursor-move", socket.id, cursorPosition);
-    });
-
-    socket.on("disconnect", async () => {
-      console.log("User disconnected:", socket.id);
-
-      // If user was in a document, remove them
-      if (activeUsers[socket.id]) {
-        const { documentId, userName } = activeUsers[socket.id];
-
-        // Remove user from document in database
-        await documentService.removeUserFromDocument(documentId, socket.id);
-
-        // Get updated user list
-        const users = await documentService.getDocumentUsers(documentId);
-
-        // Notify room of user leaving
-        io.to(documentId).emit("user-left", socket.id, userName);
-        io.to(documentId).emit("user-list", users);
-
-        // Clean up
-        delete activeUsers[socket.id];
-
-        console.log(`User ${userName} left document ${documentId}`);
-      }
-    });
-  });
-};
+// All the socket handler code is now in the SocketService class
+// Keep the commented out section as reference
 
 // Apply middleware
 app.use(express.json());

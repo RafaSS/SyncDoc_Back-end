@@ -40,7 +40,7 @@ onMounted(() => {
     });
 
     // Disable editor until document loads
-    quill.value.disable();
+    // quill.value.disable();
 
     // Set up Quill event handlers
     setupQuillHandlers();
