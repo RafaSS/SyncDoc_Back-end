@@ -152,7 +152,10 @@ export class SocketService {
 
           // Get the document content
           if (document && document.content) {
-            // console.log("Sending document content:", document.content);
+            console.log(
+              "Sending document content: 💕💕💕💕💕💕",
+              document.content
+            );
             socket.emit("load-document", document.content);
           } else {
             // If no content exists, send an empty delta

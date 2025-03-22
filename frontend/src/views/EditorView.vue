@@ -23,11 +23,8 @@ const remoteCursors = ref<Record<string, any>>({});
 // Set up Quill and Socket.IO connections
 onMounted(() => {
   // Initialize socket connection if not already initialized
-  if (!documentStore.socket) {
-    const SOCKET_URL =
-      import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
-    documentStore.initializeSocket(SOCKET_URL);
-  }
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
+  documentStore.initializeSocket(SOCKET_URL);
 
   // Initialize Quill editor
   if (editor.value) {
@@ -39,21 +36,18 @@ onMounted(() => {
       placeholder: "Start typing...",
     });
 
-    // Disable editor until document loads
-    // quill.value.disable();
-
-    // Set up Quill event handlers
+    // Setup Quill event handlers
     setupQuillHandlers();
 
-    // Set up Socket.IO event handlers
-    setupSocketHandlers();
+    // Store the Quill instance in the store
+    documentStore.setQuillInstance(quill.value);
 
     // Join the document
     documentStore.joinDocument(documentId.value);
-    console.log("Joined document:", route.params);
+    console.log("Joined document:", documentId.value);
   }
 
-  // Update document title in page title
+  // Watch for document title changes
   watch(
     () => documentStore.document.title,
     (newTitle) => {
@@ -61,13 +55,31 @@ onMounted(() => {
       documentTitle.value = newTitle;
     }
   );
+
+  // Watch for connection status changes
+  watch(
+    () => documentStore.connected,
+    (isConnected) => {
+      connectionStatus.value = isConnected ? "Connected" : "Disconnected";
+      connectionColor.value = isConnected ? "#4CAF50" : "#f44336";
+    }
+  );
+
+  // Watch for remote cursor updates
+  watch(
+    () => documentStore.remoteCursors,
+    (cursors) => {
+      Object.entries(cursors).forEach(([userId, cursorData]) => {
+        updateRemoteCursorElement(userId, cursorData);
+      });
+    },
+    { deep: true }
+  );
 });
 
 onBeforeUnmount(() => {
   // Leave the document when component is unmounted
-  if (documentStore.socket && documentStore.connected) {
-    documentStore.socket.emit("leave-document", documentId.value);
-  }
+  documentStore.leaveDocument();
 
   // Remove all cursor elements
   Object.values(remoteCursors.value).forEach((cursor) => {
@@ -106,72 +118,6 @@ function setupQuillHandlers() {
   );
 }
 
-function setupSocketHandlers() {
-  if (!documentStore.socket) return;
-
-  // Update connection status based on socket state
-  watch(
-    () => documentStore.connected,
-    (isConnected) => {
-      connectionStatus.value = isConnected ? "Connected" : "Disconnected";
-      connectionColor.value = isConnected ? "#4CAF50" : "#f44336";
-    }
-  );
-
-  // Document content loading
-  documentStore.socket.on("load-document", (content) => {
-    if (!quill.value) return;
-
-    const parsedContent = content ? JSON.parse(content) : { ops: [] };
-    quill.value.setContents(parsedContent);
-    quill.value.enable();
-
-    // Also update the store content
-    documentStore.updateContent(parsedContent);
-  });
-
-  // Document title loading
-  documentStore.socket.on("document-title", (title) => {
-    documentTitle.value = title;
-    documentStore.document.title = title;
-  });
-
-  // Handle remote text changes
-  documentStore.socket.on("text-change", (delta) => {
-    if (!quill.value) return;
-
-    quill.value.updateContents(delta);
-  });
-
-  // Handle remote title changes
-  documentStore.socket.on("title-change", (title) => {
-    documentTitle.value = title;
-    documentStore.document.title = title;
-  });
-
-  // Handle user list updates
-  documentStore.socket.on("user-list", (users) => {
-    documentStore.updateUserList(users);
-  });
-
-  // Handle remote cursor movements
-  documentStore.socket.on("cursor-move", (socketId, cursorPosition) => {
-    updateRemoteCursor(socketId, cursorPosition);
-  });
-
-  // Handle document history updates
-  documentStore.socket.on("document-history", (history) => {
-    documentStore.updateDocumentHistory(history);
-  });
-}
-
-// Update title on input change
-function updateTitle() {
-  if (!documentStore.socket || !documentStore.connected) return;
-
-  documentStore.updateTitle(documentTitle.value);
-}
-
 // Handle the share button click
 function showShareModal() {
   isShowingShareModal.value = true;
@@ -182,18 +128,19 @@ function toggleHistoryPanel() {
   isShowingHistoryPanel.value = !isShowingHistoryPanel.value;
 
   // Fetch document history if showing the panel
-  if (
-    isShowingHistoryPanel.value &&
-    documentStore.socket &&
-    documentStore.connected
-  ) {
-    documentStore.socket.emit("get-document-history", documentId.value);
+  if (isShowingHistoryPanel.value) {
+    documentStore.getDocumentHistory();
   }
 }
 
-// Update remote cursor positions
-function updateRemoteCursor(userId: string, range: any) {
-  if (userId === documentStore.userId || !quill.value || !range) return;
+// Update title on input change
+function updateTitle() {
+  documentStore.updateTitle(documentTitle.value);
+}
+
+// Update remote cursor positions in the DOM
+function updateRemoteCursorElement(userId: string, cursorData: any) {
+  if (!quill.value || !cursorData.range) return;
 
   // Get or create the cursor element
   let cursor = remoteCursors.value[userId];
@@ -204,8 +151,7 @@ function updateRemoteCursor(userId: string, range: any) {
     cursorElement.style.position = "absolute";
     cursorElement.style.height = "20px";
     cursorElement.style.width = "2px";
-    cursorElement.style.backgroundColor =
-      documentStore.userColors[userId] || "#f44336";
+    cursorElement.style.backgroundColor = cursorData.color;
     cursorElement.style.transition = "transform 0.1s";
 
     const nameFlag = document.createElement("div");
@@ -213,14 +159,13 @@ function updateRemoteCursor(userId: string, range: any) {
     nameFlag.style.position = "absolute";
     nameFlag.style.top = "-18px";
     nameFlag.style.left = "0";
-    nameFlag.style.backgroundColor =
-      documentStore.userColors[userId] || "#f44336";
+    nameFlag.style.backgroundColor = cursorData.color;
     nameFlag.style.color = "white";
     nameFlag.style.padding = "2px 4px";
     nameFlag.style.borderRadius = "3px";
     nameFlag.style.fontSize = "10px";
     nameFlag.style.whiteSpace = "nowrap";
-    nameFlag.textContent = documentStore.document.users[userId] || "Anonymous";
+    nameFlag.textContent = cursorData.name;
 
     cursorElement.appendChild(nameFlag);
     document.querySelector(".ql-editor")?.appendChild(cursorElement);
@@ -234,10 +179,9 @@ function updateRemoteCursor(userId: string, range: any) {
   }
 
   // Update the cursor position
-  const position = quill.value.getBounds(range.index);
+  const position = quill.value.getBounds(cursorData.range.index);
   cursor.element.style.transform = `translate(${position.left}px, ${position.top}px)`;
-  cursor.nameFlag.textContent =
-    documentStore.document.users[userId] || "Anonymous";
+  cursor.nameFlag.textContent = cursorData.name;
 }
 </script>
 
