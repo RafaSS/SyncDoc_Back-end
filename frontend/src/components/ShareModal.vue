@@ -1,33 +1,36 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from "vue";
 
 const props = defineProps<{
-  documentId: string
-}>()
+  documentId: string;
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void
-}>()
+  (e: "close"): void;
+}>();
 
-const shareLink = ref('')
-const copyButtonText = ref('Copy')
+const shareLink = ref("");
+const copyButtonText = ref("Copy");
 
 onMounted(() => {
   // Generate the shareable link
-  const baseUrl = window.location.origin
-  shareLink.value = `${baseUrl}/doc/${props.documentId}`
-})
-
+  const baseUrl = window.location.origin;
+  shareLink.value = `${baseUrl}/doc/${props.documentId}`;
+});
+function selectText(event: Event) {
+  const input = event.target as HTMLInputElement;
+  input.select();
+}
 function copyLink() {
-  navigator.clipboard.writeText(shareLink.value)
-  copyButtonText.value = 'Copied!'
+  navigator.clipboard.writeText(shareLink.value);
+  copyButtonText.value = "Copied!";
   setTimeout(() => {
-    copyButtonText.value = 'Copy'
-  }, 2000)
+    copyButtonText.value = "Copy";
+  }, 2000);
 }
 
 function close() {
-  emit('close')
+  emit("close");
 }
 </script>
 
@@ -38,7 +41,12 @@ function close() {
       <h2>Share Document</h2>
       <p>Share this link with others to collaborate:</p>
       <div class="share-link-container">
-        <input type="text" :value="shareLink" readonly @click="$event.target.select()" />
+        <input
+          type="text"
+          :value="shareLink"
+          readonly
+          @click="selectText($event)"
+        />
         <button @click="copyLink">{{ copyButtonText }}</button>
       </div>
     </div>
@@ -102,7 +110,7 @@ h2 {
 
 .share-link-container button {
   padding: 0.75rem 1.5rem;
-  background-color: #4285F4;
+  background-color: #4285f4;
   color: white;
   border: none;
   border-radius: 0 4px 4px 0;
