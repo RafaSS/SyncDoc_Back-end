@@ -30,6 +30,7 @@ const allowedOrigins = process.env.CORS_ORIGINS
       "https://sync-doc.vercel.app",
       "http://localhost:5173",
       "http://localhost:3000",
+      "http://localhost:4173",
     ];
 console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
 

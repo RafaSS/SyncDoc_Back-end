@@ -27,6 +27,7 @@ export function createServices(httpServer?: http.Server) {
         "http://localhost:3000",
         "https://your-frontend-url.com",
         "http://localhost:5173",
+        "http://localhost:4173",
         "https://sync-doc.vercel.app",
       ],
       methods: ["GET", "POST"],
