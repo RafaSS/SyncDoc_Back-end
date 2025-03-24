@@ -26,7 +26,11 @@ const server = http.createServer(app);
 // Get allowed origins from environment variable
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",")
-  : ["*"];
+  : [
+      "https://sync-doc.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ];
 console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
 
 // Get port from environment variable or use default
