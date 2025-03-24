@@ -1,8 +1,8 @@
 import { defineStore } from "pinia";
-import { ref, reactive, computed } from "vue";
+import { ref, reactive } from "vue";
 import { io } from "socket.io-client";
 import { v4 as uuid } from "uuid";
-import type { Document, Delta, CursorPosition, DeltaOperation } from "../types";
+import type { Document, Delta, CursorPosition } from "../types";
 import { QuillEditor } from "@vueup/vue-quill";
 import QuillCursors from "quill-cursors";
 
@@ -77,32 +77,27 @@ export const useDocumentStore = defineStore("document", () => {
       joinDocument(document.id);
     }
 
-    socket.value.on(
-      "load-document",
-      (content: [], deltas: [], documentContent: any) => {
-        console.log(
-          "Store received document content:",
-          JSON.stringify(content.length)
-        );
-        // Validate content
-        if (!Array.isArray(content) || content.length === 0) {
-          console.log("Invalid document content received");
-          quillInstance.value?.getQuill()?.setText("");
-          quillInstance.value?.getQuill()?.enable();
-          return;
-        }
-        document.content = content; // Store original content
-
-        // Update Quill if it exists
-        if (quillInstance.value) {
-          console.log("Updating Quill with document content", documentContent);
-          quillInstance.value
-            .getQuill()
-            .setContents(JSON.parse(documentContent));
-          quillInstance.value.getQuill()?.enable();
-        }
+    socket.value.on("load-document", (content: [], documentContent: any) => {
+      console.log(
+        "Store received document content:",
+        JSON.stringify(content.length)
+      );
+      // Validate content
+      if (!Array.isArray(content) || content.length === 0) {
+        console.log("Invalid document content received");
+        quillInstance.value?.getQuill()?.setText("");
+        quillInstance.value?.getQuill()?.enable();
+        return;
       }
-    );
+      document.content = content; // Store original content
+
+      // Update Quill if it exists
+      if (quillInstance.value) {
+        console.log("Updating Quill with document content", documentContent);
+        quillInstance.value.getQuill().setContents(JSON.parse(documentContent));
+        quillInstance.value.getQuill()?.enable();
+      }
+    });
 
     socket.value.on("document-title", (title: string) => {
       document.title = title;
@@ -152,6 +147,7 @@ export const useDocumentStore = defineStore("document", () => {
     socket.value.on("user-joined", (socketId: string, userName: string) => {
       // Show notification or update UI when a user joins
       console.log(`${userName} joined the document`);
+      updateUserColors([socketId]);
     });
 
     socket.value.on("user-left", (socketId: string, userName: string) => {
