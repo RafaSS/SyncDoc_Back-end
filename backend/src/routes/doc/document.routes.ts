@@ -108,7 +108,7 @@ router.get("/:id/history", ...viewPermMiddleware, async (req, res) => {
  * @description Create a new document
  * @access Private
  */
-router.post("/", ...authMiddleware, async (req, res) => {
+router.post("/", async (req, res) => {
   console.log("Creating document...🎶🎶🎶");
   try {
     const userId = (req as any).user?.id;

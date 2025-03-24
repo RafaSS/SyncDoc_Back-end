@@ -14,7 +14,8 @@ export interface IDocumentService {
   updateDocumentContent(
     id: string,
     delta: DeltaOperation[],
-    userId?: string
+    userId?: string,
+    content?: any
   ): Promise<boolean>;
   addUserToDocument(id: string, userId?: string): Promise<void>;
   removeUserFromDocument(id: string, userId?: string): Promise<boolean>;

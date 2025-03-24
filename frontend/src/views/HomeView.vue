@@ -12,7 +12,7 @@ const documents = ref<Array<{ id: string; title: string; userCount: number }>>(
 );
 
 onMounted(async () => {
-  // Initialize the socket connection
+  // // Initialize the socket connection
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
   documentStore.initializeSocket(SOCKET_URL);
 
@@ -33,16 +33,29 @@ onMounted(async () => {
 });
 
 async function createNewDocument() {
-  console.log("Attempting to create a new document...");
   try {
-    const documentId = await documentStore.createNewDocument();
-    console.log("Document created with ID:", documentId);
-    if (documentId) {
-      console.log("Navigating to editor with ID:", documentId);
-      router.push({ name: "editor", params: { id: documentId } });
+    const response = await fetch(
+      `${
+        import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api"
+      }/documents`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (data.id) {
+      router.push({ name: "editor", params: { id: data.id } });
     }
   } catch (error) {
-    console.error("Failed to create new document:", error);
+    console.error("Error creating new document:", error);
   }
 }
 
