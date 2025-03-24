@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, reactive, computed } from "vue";
 import { io } from "socket.io-client";
+import { v4 as uuid } from "uuid";
 import type { Document, Delta, CursorPosition } from "../types";
 
 export const useDocumentStore = defineStore("document", () => {
@@ -28,7 +29,7 @@ export const useDocumentStore = defineStore("document", () => {
     if (!socket.value) {
       socket.value = io(url, {
         withCredentials: true,
-        query: { userId: userId.value },
+        query: { userId: userId },
       });
 
       // Connection status
@@ -37,48 +38,33 @@ export const useDocumentStore = defineStore("document", () => {
         console.log("Socket connected");
       });
 
-      socket.value.on("disconnect", () => {
-        connected.value = false;
-        console.log("Socket disconnected");
-      });
-
       setupSocketHandlers();
     }
   }
 
   // Store the Quill instance for later use
-  function setQuillInstance(quill: any) {
-    quillInstance.value = quill;
+  function setQuillInstance(quillComponentOrInstance: any) {
+    quillInstance.value = quillComponentOrInstance;
   }
 
   // Socket event handlers
   function setupSocketHandlers() {
     if (!socket.value) return;
 
-    socket.value.on("connect", () => {
-      connected.value = true;
-      console.log("Socket connected");
-
-      // Rejoin document if we were previously connected
-      if (document.id) {
-        joinDocument(document.id);
-      }
-    });
-
-    socket.value.on("disconnect", () => {
-      connected.value = false;
-      console.log("Socket disconnected");
-    });
+    // Rejoin document if we were previously connected
+    if (document.id) {
+      joinDocument(document.id);
+    }
 
     socket.value.on("load-document", (content: any) => {
-      console.log("Store received document content:", content);
-      document.deltas.push(content);
+      console.log("Store received document content:", JSON.stringify(content));
+      document.content = content; // Store original content
 
       // Update Quill if it exists
       if (quillInstance.value) {
-        quillInstance.value.setContents(
-          content ? JSON.parse(content) : { ops: [] }
-        );
+        for (const key in content) {
+          quillInstance.value.updateContents(content[key]);
+        }
         quillInstance.value.enable();
       }
     });
@@ -95,19 +81,37 @@ export const useDocumentStore = defineStore("document", () => {
     socket.value.on("document-history", (history: any[]) => {
       documentHistory.value = history;
     });
-
-    socket.value.on("text-change", (delta: Delta) => {
-      if (quillInstance.value) {
-        quillInstance.value.updateContents(delta);
+    socket.value.on(
+      "text-change",
+      (
+        docId: string,
+        delta: Delta,
+        source: string,
+        userIdClient: string,
+        content: string
+      ) => {
+        console.log(
+          "Text change received:😁😁😁",
+          docId,
+          delta,
+          source,
+          userIdClient,
+          content
+        );
+        console.log("Quill instance:", userIdClient, userId.value);
+        if (quillInstance.value && userIdClient !== userId.value) {
+          console.log("Updating Quill content:", delta.ops);
+          quillInstance.value.updateContents(delta.ops);
+        }
       }
-    });
+    );
 
     socket.value.on("title-change", (title: string) => {
       document.title = title;
     });
 
-    socket.value.on("cursor-move", (socketId: string, cursorPosition: any) => {
-      updateRemoteCursor(socketId, cursorPosition);
+    socket.value.on("cursor-move", (userId: string, cursorPosition: any) => {
+      updateRemoteCursor(userId, cursorPosition);
     });
 
     socket.value.on("user-joined", (socketId: string, userName: string) => {
@@ -162,13 +166,19 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   function sendTextChange(delta: Delta, source: string, content: any) {
-    if (!socket.value || !document.id) return;
+    if (!socket.value || !document.id) {
+      console.log("No socket or document id");
+      return;
+    }
+    const safeDeltaToSend = delta && delta.ops ? delta : { ops: [] };
 
+    console.log("Sending text change:", safeDeltaToSend);
     socket.value.emit(
       "text-change",
       document.id,
-      delta,
+      safeDeltaToSend,
       source,
+      userId.value,
       JSON.stringify(content)
     );
   }
@@ -180,8 +190,10 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   function moveCursor(position: CursorPosition) {
+    console.log("Moving cursor to:", position);
+
     if (!socket.value || !document.id) return;
-    socket.value.emit("cursor-move", document.id, position);
+    socket.value.emit("cursor-move", document.id, position, userId.value);
   }
 
   function leaveDocument() {
@@ -208,7 +220,7 @@ export const useDocumentStore = defineStore("document", () => {
     const storedId = localStorage.getItem("userId");
     if (storedId) return storedId;
 
-    const newId = Math.random().toString(36).substring(2, 15);
+    const newId = uuid();
     localStorage.setItem("userId", newId);
     return newId;
   }
@@ -224,19 +236,30 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   // Update remote cursor positions
-  function updateRemoteCursor(remoteUserId: string, range: any) {
-    if (remoteUserId === userId.value || !quillInstance.value || !range) return;
+  function updateRemoteCursor(remoteUserId: string, cursorPosition: any) {
+    if (
+      remoteUserId === userId.value ||
+      !quillInstance.value ||
+      !cursorPosition
+    ) {
+      console.log("Remote cursor update skipped");
+      return;
+    }
 
     // Emit an event that the view can listen to
     // This allows the view to handle the actual DOM manipulation
     const cursorData = {
       userId: remoteUserId,
-      range: range,
+      range: cursorPosition,
       color: userColors[remoteUserId] || "#f44336",
       name: document.users[remoteUserId] || "Anonymous",
     };
 
     remoteCursors.value[remoteUserId] = cursorData;
+    console.log(
+      "Remote cursor updated:",
+      remoteCursors.value[remoteUserId].range
+    );
   }
 
   return {
@@ -260,12 +283,3 @@ export const useDocumentStore = defineStore("document", () => {
     getDocumentHistory,
   };
 });
-
-function generateUserId(): string {
-  const storedId = localStorage.getItem("userId");
-  if (storedId) return storedId;
-
-  const newId = Math.random().toString(36).substring(2, 15);
-  localStorage.setItem("userId", newId);
-  return newId;
-}

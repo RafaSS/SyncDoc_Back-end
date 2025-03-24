@@ -13,7 +13,9 @@ export class DocumentController {
     res: Response
   ): Promise<void> => {
     try {
-      const documents = await this.documentService.getAllDocuments();
+      const documents = await this.documentService.getAllDocuments(
+        (req as any).user.id
+      );
       res.status(200).json(documents);
     } catch (error) {
       const errorMessage =
@@ -83,7 +85,7 @@ export class DocumentController {
       const ownerId = (req as any).user?.id;
       console.log("Owner ID:", ownerId);
       const result = await this.documentService.createDocument(ownerId);
-      console.log("Document created:", result);
+      console.log("Document created:", result.id);
       res.status(201).json(result);
     } catch (error) {
       const errorMessage =

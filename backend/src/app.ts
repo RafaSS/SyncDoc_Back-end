@@ -9,7 +9,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import * as http from "http";
 import cors from "cors";
-import { createServices, Services } from "./config/service-factory";
+import { createServices } from "./config/service-factory";
 import { authRoutes, documentRoutes, userRoutes } from "./routes";
 
 // Load the appropriate .env file based on the environment
@@ -22,6 +22,7 @@ if (isTest) {
 }
 
 // Initialize services - simplified for testing
+const { socketService } = createServices();
 let services;
 if (isTest) {
   // Explicitly require and use createMockServices
@@ -32,10 +33,8 @@ if (isTest) {
   }
   services = testHelpers.createMockServices();
 } else {
-  services = createServices();
+  // socketService.setupSocketHandlers();
 }
-
-const { socketService } = services as Services;
 
 const app = express();
 
@@ -74,7 +73,7 @@ const startServer = () => {
   server = (socketService as any).io.httpServer || http.createServer();
 
   // Initialize socket handlers (if not already initialized)
-  socketService.setupSocketHandlers();
+  // socketService.setupSocketHandlers();
   console.log("🚀 Socket handlers initialized");
 
   // Start the Socket.IO server
@@ -106,14 +105,14 @@ export const startExpressServer = () => {
 
 // Apply middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser(process.env.COOKIE_SECRET));
+// app.use(express.urlencoded({ extended: true }));
+// app.use(cookieParser(process.env.COOKIE_SECRET));
 
 // Enable CORS for all routes
 app.use(
   cors({
-    origin: allowedOrigins,
-    credentials: true,
+    // origin: allowedOrigins,
+    // credentials: true,
   })
 );
 

@@ -19,7 +19,7 @@ export interface Delta {
  * Represents a delta change with metadata
  */
 export interface DeltaChange {
-  delta: Delta;
+  delta: DeltaOperation[];
   userId: string;
   userName: string;
   timestamp: number;

@@ -51,6 +51,6 @@ export function createServices() {
     authService,
     userService,
     socketService,
-  };
+  } as const;
 }
 export type Services = ReturnType<typeof createServices>;

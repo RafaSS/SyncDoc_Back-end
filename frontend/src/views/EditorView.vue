@@ -2,7 +2,9 @@
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
-import Quill from "quill";
+import { QuillEditor } from "@vueup/vue-quill";
+import "@vueup/vue-quill/dist/vue-quill.snow.css";
+import QuillCursors from "quill-cursors";
 import UserList from "../components/UserList.vue";
 import EditorToolbar from "../components/EditorToolbar.vue";
 import ShareModal from "../components/ShareModal.vue";
@@ -11,8 +13,7 @@ import HistoryPanel from "../components/HistoryPanel.vue";
 const route = useRoute();
 const documentStore = useDocumentStore();
 const documentId = ref(route.params.id as string);
-const quill = ref<Quill | null>(null);
-const editor = ref<HTMLElement | null>(null);
+const editorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
 const isShowingShareModal = ref(false);
 const isShowingHistoryPanel = ref(false);
 const documentTitle = ref("Untitled Document");
@@ -20,48 +21,59 @@ const connectionStatus = ref("Connecting...");
 const connectionColor = ref("#f39c12");
 const remoteCursors = ref<Record<string, any>>({});
 
-// Set up Quill and Socket.IO connections
-onMounted(() => {
-  // Initialize socket connection if not already initialized
+// Cursors module
+const cursorsModule = {
+  name: "cursors",
+  module: QuillCursors,
+  options: {
+    hideDelayMs: 5000,
+    transformOnTextChange: true,
+  },
+};
+
+// Editor configuration
+const editorOptions = {
+  modules: {
+    toolbar: "#toolbar",
+    history: {
+      delay: 1000,
+      maxStack: 100,
+      userOnly: true,
+    },
+    cursors: cursorsModule,
+    selection: {
+      transformOnTextChange: true,
+    },
+  },
+  placeholder: "Enter your text here...",
+  theme: "snow",
+};
+
+onMounted(async () => {
+  // Initialize socket connection
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
   documentStore.initializeSocket(SOCKET_URL);
 
-  // Initialize Quill editor
-  if (editor.value) {
-    quill.value = new Quill(editor.value, {
-      theme: "snow",
-      modules: {
-        toolbar: "#toolbar",
-      },
-      placeholder: "Start typing...",
-    });
+  // Join the document
+  documentStore.joinDocument(documentId.value);
+  console.log("Joined document:", documentId.value);
 
-    // Setup Quill event handlers
-    setupQuillHandlers();
-
-    // Store the Quill instance in the store
-    documentStore.setQuillInstance(quill.value);
-
-    // Join the document
-    documentStore.joinDocument(documentId.value);
-    console.log("Joined document:", documentId.value);
-  }
+  // Watch for connection status changes
+  watch(
+    () => documentStore.connected,
+    (newStatus) => {
+      connectionStatus.value = newStatus ? "Connected" : "Disconnected";
+      connectionColor.value = newStatus ? "#27ae60" : "#e74c3c";
+    }
+  );
 
   // Watch for document title changes
   watch(
     () => documentStore.document.title,
     (newTitle) => {
-      document.title = `${newTitle} - SyncDoc`;
-      documentTitle.value = newTitle;
-    }
-  );
-
-  // Watch for connection status changes
-  watch(
-    () => documentStore.connected,
-    (isConnected) => {
-      connectionStatus.value = isConnected ? "Connected" : "Disconnected";
-      connectionColor.value = isConnected ? "#4CAF50" : "#f44336";
+      if (newTitle) {
+        documentTitle.value = newTitle;
+      }
     }
   );
 
@@ -69,9 +81,12 @@ onMounted(() => {
   watch(
     () => documentStore.remoteCursors,
     (cursors) => {
-      Object.entries(cursors).forEach(([userId, cursorData]) => {
-        updateRemoteCursorElement(userId, cursorData);
-      });
+      for (const userId in cursors) {
+        if (userId !== documentStore.userId) {
+          const cursorData = cursors[userId];
+          updateRemoteCursorElement(userId, cursorData);
+        }
+      }
     },
     { deep: true }
   );
@@ -89,41 +104,59 @@ onBeforeUnmount(() => {
   });
 });
 
-function setupQuillHandlers() {
-  if (!quill.value) return;
+// Text change handler
+function onEditorTextChange(event: any) {
+  console.log("Text change detected:", event.delta);
+  const { delta, source } = event;
 
-  // Text change handler
-  quill.value.on(
-    "text-change",
-    (delta: { ops: any[] }, _oldDelta: { ops: any[] }, source: string) => {
-      if (source === "user") {
-        const content = quill.value!.getContents();
-        documentStore.sendTextChange(delta, source, content);
-      }
-    }
-  );
-
-  // Selection change handler for cursor movement
-  quill.value.on(
-    "selection-change",
-    (
-      range: { index: number; length: number } | null,
-      _oldRange: { index: number; length: number } | null,
-      source: string
-    ) => {
-      if (source === "user" && range) {
-        documentStore.moveCursor(range);
-      }
-    }
-  );
+  if (source === "user" && editorRef.value) {
+    const content = editorRef.value.getContents();
+    documentStore.sendTextChange(delta, source, content);
+  }
+  // Update remote cursor
+  documentStore.moveCursor(delta);
 }
 
-// Handle the share button click
+// Selection change handler
+function onEditorSelectionChange(event: any) {
+  const { range, source } = event;
+  // Check for valid range to prevent IndexSizeError
+  if (source === "user" && range) {
+    documentStore.moveCursor(range);
+  }
+}
+
+// After QuillEditor is ready
+function onEditorReady(quill: any) {
+  quill.disable();
+  // Store the Quill instance in the store
+  documentStore.setQuillInstance(quill);
+
+  // Initialize cursors module if needed
+  if (quill.getModule("cursors")) {
+    const cursorsInstance = quill.getModule("cursors");
+
+    // Set up existing cursors from document
+    if (documentStore.document.users) {
+      Object.entries(documentStore.document.users).forEach(
+        ([userId, userData]: [string, any]) => {
+          if (userId !== documentStore.userId) {
+            cursorsInstance.createCursor(
+              userId,
+              userData.name || "Anonymous",
+              userData.color || "#f39c12"
+            );
+          }
+        }
+      );
+    }
+  }
+}
+
 function showShareModal() {
   isShowingShareModal.value = true;
 }
 
-// Handle the history button click
 function toggleHistoryPanel() {
   isShowingHistoryPanel.value = !isShowingHistoryPanel.value;
 
@@ -133,55 +166,41 @@ function toggleHistoryPanel() {
   }
 }
 
-// Update title on input change
 function updateTitle() {
   documentStore.updateTitle(documentTitle.value);
 }
 
-// Update remote cursor positions in the DOM
 function updateRemoteCursorElement(userId: string, cursorData: any) {
-  if (!quill.value || !cursorData.range) return;
+  if (!editorRef.value?.getQuill() || !cursorData || !cursorData.range) return;
 
-  // Get or create the cursor element
-  let cursor = remoteCursors.value[userId];
-
-  if (!cursor) {
-    const cursorElement = document.createElement("div");
-    cursorElement.className = "cursor";
-    cursorElement.style.position = "absolute";
-    cursorElement.style.height = "20px";
-    cursorElement.style.width = "2px";
-    cursorElement.style.backgroundColor = cursorData.color;
-    cursorElement.style.transition = "transform 0.1s";
-
-    const nameFlag = document.createElement("div");
-    nameFlag.className = "cursor-flag";
-    nameFlag.style.position = "absolute";
-    nameFlag.style.top = "-18px";
-    nameFlag.style.left = "0";
-    nameFlag.style.backgroundColor = cursorData.color;
-    nameFlag.style.color = "white";
-    nameFlag.style.padding = "2px 4px";
-    nameFlag.style.borderRadius = "3px";
-    nameFlag.style.fontSize = "10px";
-    nameFlag.style.whiteSpace = "nowrap";
-    nameFlag.textContent = cursorData.name;
-
-    cursorElement.appendChild(nameFlag);
-    document.querySelector(".ql-editor")?.appendChild(cursorElement);
-
-    cursor = {
-      element: cursorElement,
-      nameFlag,
-    };
-
-    remoteCursors.value[userId] = cursor;
+  // Validate the cursor range to prevent IndexSizeError
+  if (
+    cursorData.range.index === undefined ||
+    cursorData.range.index === null ||
+    cursorData.range.index < 0 ||
+    cursorData.range.index >= 4294967295
+  ) {
+    return;
   }
 
-  // Update the cursor position
-  const position = quill.value.getBounds(cursorData.range.index);
-  cursor.element.style.transform = `translate(${position.left}px, ${position.top}px)`;
-  cursor.nameFlag.textContent = cursorData.name;
+  const quill = editorRef.value.getQuill();
+  const cursorsModule = quill.getModule("cursors");
+
+  if (cursorsModule) {
+    try {
+      // Update cursor through the module
+      cursorsModule.createCursor(
+        userId,
+        cursorData.name || "Anonymous",
+        cursorData.color || "#f39c12"
+      );
+      cursorsModule.moveCursor(userId, cursorData.range);
+      cursorsModule.toggleFlag(userId, true);
+    } catch (error) {
+      console.error("Error updating cursor:", error);
+    }
+    return;
+  }
 }
 </script>
 
@@ -203,7 +222,15 @@ function updateRemoteCursorElement(userId: string, cursorData: any) {
     <main>
       <div class="editor-container">
         <EditorToolbar @show-history="toggleHistoryPanel" />
-        <div ref="editor" id="editor"></div>
+        <QuillEditor
+          ref="editorRef"
+          :options="editorOptions"
+          :modules="[cursorsModule]"
+          toolbar="#toolbar"
+          @text-change="onEditorTextChange"
+          @selection-change="onEditorSelectionChange"
+          @ready="onEditorReady"
+        />
       </div>
 
       <HistoryPanel

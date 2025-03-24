@@ -1,6 +1,10 @@
-import { AuthRepository } from '../repositories/auth.repository';
-import { UserRepository } from '../repositories/user.repository';
-import { IAuthResponse, IUserCredentials, IUserRegistration } from '../interfaces/user.interface';
+import { AuthRepository } from "../repositories/auth.repository";
+import { UserRepository } from "../repositories/user.repository";
+import {
+  IAuthResponse,
+  IUserCredentials,
+  IUserRegistration,
+} from "../interfaces/user.interface";
 
 /**
  * Service for authentication related operations
@@ -76,7 +80,10 @@ export class AuthService {
    * Get current logged in user
    * @returns User data if logged in, null otherwise
    */
-  async getCurrentUser(): Promise<Omit<IAuthResponse['user'], 'password'> | null> {
+  async getCurrentUser(): Promise<Omit<
+    IAuthResponse["user"],
+    "password"
+  > | null> {
     return this.authRepository.getCurrentUser();
   }
 }

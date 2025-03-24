@@ -18,10 +18,11 @@ onMounted(async () => {
 
   try {
     // Fetch documents from API
+    const userId = documentStore.userId;
     const response = await fetch(
       `${
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:10000/api"
-      }/documents`
+        import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api"
+      }/documents?userId=${userId}`
     );
     documents.value = await response.json();
   } catch (error) {

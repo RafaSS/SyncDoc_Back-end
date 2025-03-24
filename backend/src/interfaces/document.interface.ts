@@ -1,4 +1,4 @@
-import { DeltaChange } from './delta.interface';
+import { DeltaChange, DeltaOperation } from "./delta.interface";
 
 /**
  * Represents a document in the SyncDoc application
@@ -6,7 +6,7 @@ import { DeltaChange } from './delta.interface';
 export interface IDocument {
   id: string;
   title: string;
-  content: string;
+  content: DeltaOperation[];
   users: Record<string, string>;
   deltas: DeltaChange[];
   createdAt: Date;

@@ -1,5 +1,6 @@
 import { IDocument } from "../interfaces/document.interface";
 import { Delta, DeltaChange } from "../interfaces/delta.interface";
+import { DeltaOperation } from "../types";
 
 /**
  * Mock repository class for document operations (for testing)
@@ -14,7 +15,7 @@ export class MockDocumentRepository {
    */
   async createDocument(
     title: string = "Untitled Document",
-    content: Delta = { ops: [] },
+    content: DeltaOperation[] = [],
     userId?: string
   ): Promise<IDocument> {
     const id = userId || `test-doc-${Date.now()}`;
@@ -44,7 +45,7 @@ export class MockDocumentRepository {
 
     // For tests, if the document doesn't exist, create it
     if (!this.documents.has(documentId)) {
-      await this.createDocument("Test Document", { ops: [] }, documentId);
+      await this.createDocument("Test Document", [], documentId);
     }
     return this.documents.get(documentId) || null;
   }
@@ -67,7 +68,7 @@ export class MockDocumentRepository {
   ): Promise<IDocument> {
     // For tests, if the document doesn't exist, create it
     if (!this.documents.has(documentId)) {
-      await this.createDocument("Test Document", { ops: [] }, documentId);
+      await this.createDocument("Test Document", [], documentId);
     }
 
     const document = this.documents.get(documentId);
@@ -119,7 +120,7 @@ export class MockDocumentRepository {
   ): Promise<any> {
     // Make sure the document exists
     if (!this.documents.has(documentId)) {
-      await this.createDocument("Test Document", { ops: [] }, documentId);
+      await this.createDocument("Test Document", [], documentId);
     }
 
     if (!this.changes.has(documentId)) {
@@ -170,7 +171,7 @@ export class MockDocumentRepository {
   ): Promise<any> {
     // Make sure the document exists
     if (!this.documents.has(documentId)) {
-      await this.createDocument("Test Document", { ops: [] }, documentId);
+      await this.createDocument("Test Document", [], documentId);
     }
 
     if (!this.userDocuments.has(documentId)) {
@@ -231,7 +232,7 @@ export class MockDocumentRepository {
   async getDocumentUsers(documentId: string): Promise<any[]> {
     // Make sure the document exists
     if (!this.documents.has(documentId)) {
-      await this.createDocument("Test Document", { ops: [] }, documentId);
+      await this.createDocument("Test Document", [], documentId);
       // Add a test user to the document for testing
       await this.addUserToDocument(documentId, "test-socket-id", "Test User");
     }
@@ -254,7 +255,7 @@ export class MockDocumentRepository {
   ): Promise<void> {
     // Make sure the document exists
     if (!this.documents.has(documentId)) {
-      await this.createDocument("Test Document", { ops: [] }, documentId);
+      await this.createDocument("Test Document", [], documentId);
     }
 
     await this.shareDocument(documentId, socketId, "editor");
@@ -284,17 +285,17 @@ export class MockDocumentRepository {
   async updateDocumentContent(
     documentId: string,
     content: string,
-    delta: Delta,
+    delta: DeltaOperation[],
     socketId: string,
     userName: string
   ): Promise<void> {
     // Make sure the document exists
     if (!this.documents.has(documentId)) {
-      await this.createDocument("Test Document", { ops: [] }, documentId);
+      await this.createDocument("Test Document", [], documentId);
     }
 
     // Update document content
-    await this.updateDocument(documentId, { content });
+    await this.updateDocument(documentId, { content: content });
 
     // Save change in history
     await this.saveDocumentChange(documentId, socketId, {

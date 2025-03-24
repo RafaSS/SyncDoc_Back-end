@@ -4,6 +4,7 @@ import { IDocumentService } from "../interfaces/document-service.interface";
 import { DocumentRepository } from "../repositories/document.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { supabase, TABLES } from "../config/supabase";
+import { DeltaOperation } from "../types";
 
 export class DocumentService implements IDocumentService {
   private documentRepository: DocumentRepository;
@@ -22,7 +23,7 @@ export class DocumentService implements IDocumentService {
   > {
     const allDocuments = await Promise.all(
       (
-        await this.documentRepository.getUserDocuments("system")
+        await this.documentRepository.getUserDocuments({ page: 1, limit: 100 })
       ).map(async (doc) => {
         const users = await this.documentRepository.getDocumentUsers(doc.id);
         return {
@@ -63,12 +64,10 @@ export class DocumentService implements IDocumentService {
 
   public async createDocument(
     title?: string,
-    content?: Delta,
     userId?: string
   ): Promise<{ id: string }> {
     const document = await this.documentRepository.createDocument(
       title || "Untitled Document",
-      content || { ops: [] },
       userId
     );
 
@@ -89,42 +88,51 @@ export class DocumentService implements IDocumentService {
   }
 
   public async updateDocumentContent(
-    documentId: string,
-    content: string,
-    delta: Delta,
-    socketId: string,
-    userName: string,
+    id: string,
+    delta: DeltaOperation[],
     userId: string
-  ): Promise<void> {
-    return this.documentRepository.updateDocumentContent(
-      documentId,
+  ): Promise<boolean> {
+    const document = await this.documentRepository.getDocumentById(id);
+    if (!document) {
+      return false;
+    }
+
+    // Store delta for history
+    const deltaChange: DeltaChange = {
+      delta: delta,
+      userId,
+      userName: "Unknown",
+      timestamp: Date.now(),
+    };
+    const contentChange: DeltaOperation[] = delta;
+    // console.log("Delta change:", deltaChange);
+
+    // Check if document.deltas is null or undefined
+    const existingDeltas = document.deltas || [];
+    const deltas = [...existingDeltas, deltaChange];
+
+    // Check if document.content is null or undefined
+    const existingContent = document.content || [];
+    const content = [...existingContent, contentChange];
+    console.log("😁😁😁", content);
+    await this.documentRepository.updateDocument(id, {
       content,
-      delta,
-      socketId,
-      userName,
-      userId
-    );
+      deltas,
+    });
+
+    return true;
   }
 
   /**
    * Add a user to a document
    * @param documentId Document ID
-   * @param socketId User socket ID
-   * @param userName User name
-   * @param userId Optional user ID (for authenticated users)
+   * @param userId User ID
    */
   public async addUserToDocument(
     documentId: string,
-    socketId: string,
-    userName: string,
     userId: string
   ): Promise<void> {
-    await this.documentRepository.addUserToDocument(
-      documentId,
-      socketId,
-      userName,
-      userId
-    );
+    await this.documentRepository.addUserToDocument(documentId, userId);
 
     // If user is authenticated, add them to document permissions
     if (userId) {
@@ -232,7 +240,6 @@ export class DocumentService implements IDocumentService {
 
     // Transform the array of users into the expected format
     return users.reduce((acc, userDoc) => {
-      console.log("User document:", userDoc);
       acc[userDoc.user_id] = userDoc.user.name;
       return acc;
     }, {} as Record<string, string>);

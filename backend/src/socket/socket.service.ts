@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import { IDocumentService } from "../interfaces/document-service.interface";
 import { Delta } from "../interfaces/delta.interface";
 import { supabase } from "../config/supabase";
+import { DeltaOperation } from "../types";
 
 export class SocketService {
   private io: Server;
@@ -99,7 +100,6 @@ export class SocketService {
             // Create document with the provided user ID
             const result = await this.documentService.createDocument(
               "Untitled Document",
-              { ops: [] },
               userId
             );
             console.log("Document created with ID:", result.id);
@@ -118,7 +118,7 @@ export class SocketService {
       socket.on(
         "join-document",
         async (documentId: string, userName: string, userId: string) => {
-          console.log("Joining document:", documentId);
+          console.log("User:", userId, "joining document:", documentId);
           socket.join(documentId);
 
           // Store user in active users cache
@@ -132,8 +132,12 @@ export class SocketService {
           let document = await this.documentService.getDocumentById(documentId);
 
           if (!document) {
+            console.log("Document not found, creating new document...🐃🐃🐃");
             // Create a new document if it doesn't exist
-            const result = await this.documentService.createDocument();
+            const result = await this.documentService.createDocument(
+              "Untitled Document",
+              userId
+            );
             documentId = result.id;
             document = await this.documentService.getDocumentById(documentId);
             console.log("Created new document:", documentId);
@@ -143,12 +147,8 @@ export class SocketService {
           }
 
           // Add user to document
-          await this.documentService.addUserToDocument(
-            documentId,
-            socket.id,
-            userName,
-            userId
-          );
+          console.log("Adding user to document:", userId);
+          await this.documentService.addUserToDocument(documentId, userId);
 
           // Get the document content
           if (document && document.content) {
@@ -160,7 +160,7 @@ export class SocketService {
           } else {
             // If no content exists, send an empty delta
             console.log("Sending empty document content");
-            socket.emit("load-document", JSON.stringify({ ops: [] }));
+            socket.emit("load-document", { ops: [] });
           }
 
           // Get users in the document
@@ -184,27 +184,23 @@ export class SocketService {
         "text-change",
         async (
           documentId: string,
-          delta: Delta,
+          delta: DeltaOperation[],
           source: string,
-          content: string
+          userId: string
         ) => {
-          if (source !== "user" || !this.activeUsers[socket.id]) return;
-
           const userName = this.activeUsers[socket.id].userName;
-          const userId = this.activeUsers[socket.id].userId;
 
           // Update document content in database
           await this.documentService.updateDocumentContent(
             documentId,
-            content,
             delta,
-            socket.id,
-            userName,
             userId
           );
 
           // Send the delta to all other clients in the room
-          socket.to(documentId).emit("text-change", delta, socket.id, content);
+          socket
+            .to(documentId)
+            .emit("text-change", documentId, delta, source, userId);
 
           console.log(
             `Document ${documentId} updated by ${userName || "unknown user"}`
@@ -220,22 +216,22 @@ export class SocketService {
         this.io.to(documentId).emit("title-change", title);
       });
 
-      socket.on("cursor-move", (documentId: string, cursorPosition: any) => {
-        socket.to(documentId).emit("cursor-move", socket.id, cursorPosition);
-      });
+      socket.on(
+        "cursor-move",
+        (documentId: string, cursorPosition: any, userId: string) => {
+          socket.to(documentId).emit("cursor-move", userId, cursorPosition);
+        }
+      );
 
       socket.on("disconnect", async () => {
         console.log("User disconnected:", socket.id);
 
         // If user was in a document, remove them
         if (this.activeUsers[socket.id]) {
-          const { documentId, userName } = this.activeUsers[socket.id];
+          const { documentId, userName, userId } = this.activeUsers[socket.id];
 
           // Remove user from document in database
-          await this.documentService.removeUserFromDocument(
-            documentId,
-            socket.id
-          );
+          await this.documentService.removeUserFromDocument(documentId, userId);
 
           // Get updated user list
           const users = await this.documentService.getDocumentUsers(documentId);
