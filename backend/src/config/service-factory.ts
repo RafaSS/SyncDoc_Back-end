@@ -13,18 +13,15 @@ import * as http from "http";
  * Factory function to create and initialize all services
  * @returns Object containing all initialized services
  */
-export function createServices() {
+export function createServices(httpServer?: http.Server) {
   // Initialize repositories
   const documentRepository = new DocumentRepository();
   const supabaseUserRepository = new SupabaseUserRepository();
   const legacyUserRepository = new LegacyUserRepository();
   const authRepository = new AuthRepository();
 
-  // Create HTTP server for Socket.IO
-  const server = http.createServer();
-
   // Initialize Socket.IO with CORS configuration
-  const io = new Server(server, {
+  const io = new Server(httpServer, {
     cors: {
       origin: [
         "http://localhost:3000",

@@ -83,7 +83,7 @@ The application is configured to work with the E2E testing infrastructure. It us
 For production, it uses:
 
 - Express API server: Port 3000 (PORT)
-- Socket.IO server: Port 3001 (SOCKET_PORT)
+- Socket.IO server: Port 3000 (SOCKET_PORT)
 
 ## 8. Troubleshooting
 

@@ -1,8 +1,4 @@
-//app.ts
-/*
- * SyncDoc Application - Built with Bun
- * Supabase Database Integration with Authentication
- */
+// Modify your app.ts to use a single server:
 
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -21,8 +17,30 @@ if (isTest) {
   dotenv.config();
 }
 
-// Initialize services - simplified for testing
-const { socketService } = createServices();
+// Initialize Express app
+const app = express();
+
+// Create a single HTTP server
+const server = http.createServer(app);
+
+// Get allowed origins from environment variable
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",")
+  : ["*"];
+console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
+
+// Get port from environment variable or use default
+const PORT = isTest ? process.env.TEST_PORT || 3003 : process.env.PORT || 3000;
+
+// Export port for testing
+export const expressPort = PORT;
+
+// Export server and app for testing
+export { server, app as expressApp };
+
+// Initialize services with the HTTP server
+const { socketService } = createServices(server);
+
 let services;
 if (isTest) {
   // Explicitly require and use createMockServices
@@ -33,75 +51,22 @@ if (isTest) {
   }
   services = testHelpers.createMockServices();
 } else {
-  // socketService.setupSocketHandlers();
+  // Initialize Socket.IO with the HTTP server
+  socketService.setupSocketHandlers();
 }
-
-const app = express();
-
-// Get allowed origins from environment variable
-const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(",")
-  : ["*"];
-console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
-
-// Get port from environment variable or use default
-const PORT = isTest ? process.env.TEST_PORT || 3003 : process.env.PORT || 3000;
-const SOCKET_PORT = isTest
-  ? process.env.TEST_SOCKET_PORT || 3002
-  : process.env.SOCKET_PORT || 3001;
-
-// Export ports for testing
-export const expressPort = PORT;
-export const socketPort = SOCKET_PORT;
-
-// Get or create the socket.io server
-let server: http.Server | null = null;
-let expressServer: http.Server | null = null;
-
-// Export variables for testing
-export { server, app as expressApp };
 
 // In-memory cache of connected users (socketId -> document data)
 const activeUsers: {
   [socketId: string]: { documentId: string; userName: string; userId?: string };
 } = {};
 
+// Start the single server
 const startServer = () => {
-  if (server) return server;
-
-  // Get the HTTP server that Socket.IO is using
-  server = (socketService as any).io.httpServer || http.createServer();
-
-  // Initialize socket handlers (if not already initialized)
-  // socketService.setupSocketHandlers();
-  console.log("🚀 Socket handlers initialized");
-
-  // Start the Socket.IO server
-  server?.listen(SOCKET_PORT, () => {
-    console.log(`Socket.IO server running on port ${SOCKET_PORT}`);
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} (Express & Socket.IO)`);
   });
-
-  // Start the Express server separately
-  expressServer = app.listen(PORT, () => {
-    console.log(`Express server running on port ${PORT}`);
-  });
-
   return server;
 };
-
-// Start the Express server separately for testing
-export const startExpressServer = () => {
-  if (expressServer) return expressServer;
-
-  expressServer = app.listen(PORT, () => {
-    console.log(`Express server running on port ${PORT}`);
-  });
-
-  return expressServer;
-};
-
-// All the socket handler code is now in the SocketService class
-// Keep the commented out section as reference
 
 // Apply middleware
 app.use(express.json());
@@ -111,8 +76,8 @@ app.use(express.json());
 // Enable CORS for all routes
 app.use(
   cors({
-    // origin: allowedOrigins,
-    // credentials: true,
+    origin: allowedOrigins,
+    credentials: true,
   })
 );
 
@@ -123,10 +88,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/users", userRoutes);
 
-// In non-test mode, start both servers automatically
+// In non-test mode, start the server automatically
 if (!isTest) {
   startServer();
 }
 
 // Export the necessary modules and variables for testing
-export { PORT, SOCKET_PORT, startServer, expressServer };
+export { PORT, startServer };

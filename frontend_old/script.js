@@ -16,9 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Get configuration from window.SYNCDOC_CONFIG (set in config.js)
   const API_BASE_URL =
-    window.SYNCDOC_CONFIG?.API_BASE_URL || "http://localhost:3001/api";
+    window.SYNCDOC_CONFIG?.API_BASE_URL || "http://localhost:3000/api";
   const SOCKET_URL =
-    window.SYNCDOC_CONFIG?.SOCKET_URL || "http://localhost:3001";
+    window.SYNCDOC_CONFIG?.SOCKET_URL || "http://localhost:3000";
 
   // State variables
   let socket;
