@@ -66,6 +66,17 @@ const activeUsers: {
   [socketId: string]: { documentId: string; userName: string; userId?: string };
 } = {};
 
+// Start the Express server separately for testing
+export const startExpressServer = () => {
+  if (expressServer) return expressServer;
+
+  expressServer = app.listen(PORT, () => {
+    console.log(`Express server running on port ${PORT}`);
+  });
+
+  return expressServer;
+};
+// Start the Socket.IO server
 const startServer = () => {
   if (server) return server;
 
@@ -87,17 +98,6 @@ const startServer = () => {
   });
 
   return server;
-};
-
-// Start the Express server separately for testing
-export const startExpressServer = () => {
-  if (expressServer) return expressServer;
-
-  expressServer = app.listen(PORT, () => {
-    console.log(`Express server running on port ${PORT}`);
-  });
-
-  return expressServer;
 };
 
 // All the socket handler code is now in the SocketService class
