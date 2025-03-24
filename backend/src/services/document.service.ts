@@ -90,7 +90,8 @@ export class DocumentService implements IDocumentService {
   public async updateDocumentContent(
     id: string,
     delta: DeltaOperation[],
-    userId: string
+    userId: string,
+    documentContent?: any
   ): Promise<boolean> {
     const document = await this.documentRepository.getDocumentById(id);
     if (!document) {
@@ -115,10 +116,12 @@ export class DocumentService implements IDocumentService {
     const existingContent = document.content || [];
     const content = [...existingContent, contentChange];
     console.log("😁😁😁", content);
-    await this.documentRepository.updateDocument(id, {
+    await this.documentRepository.updateDocument(
+      id,
       content,
       deltas,
-    });
+      documentContent
+    );
 
     return true;
   }

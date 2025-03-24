@@ -2,19 +2,15 @@ import express, { Application } from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
 import { config } from "./env.config";
-import { userRoutes, documentRoutes } from "../routes/";
-import { IUserService } from "../interfaces/user-service.interface";
-import { IDocumentService } from "../interfaces/document-service.interface";
+
+import { userRoutes } from "../routes/";
+import { documentRoutes } from "../routes/";
 
 export class ExpressApp {
   public app: Application;
-  private userService: IUserService;
-  private documentService: IDocumentService;
 
-  constructor(userService: IUserService, documentService: IDocumentService) {
+  constructor() {
     this.app = express();
-    this.userService = userService;
-    this.documentService = documentService;
     this.initializeMiddlewares();
     this.initializeRoutes();
   }

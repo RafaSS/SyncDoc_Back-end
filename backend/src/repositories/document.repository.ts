@@ -84,6 +84,7 @@ export class DocumentRepository {
 
       if (error) {
         if (error.code === "PGRST116") return null; // Not found
+        console.error("Failed to get document by ID:", documentId);
         throw new Error(`Error fetching document: ${error.message}`);
       }
 
@@ -97,17 +98,22 @@ export class DocumentRepository {
   /**
    * Update a document
    * @param documentId Document ID
-   * @param updates Object containing the fields to update
+   * @param content Array of Delta operations
+   * @param documentContent Optional document content
    * @returns The updated document
    */
   async updateDocument(
     documentId: string,
-    updates: Partial<IDocument>
+    content: DeltaOperation[],
+    deltas: DeltaChange[],
+    documentContent?: any
   ): Promise<IDocument> {
     try {
       // Always update the updated_at timestamp
       const updatedData = {
-        ...updates,
+        content,
+        deltas,
+        documentContent,
         updated_at: new Date().toISOString(),
       };
 
@@ -120,6 +126,7 @@ export class DocumentRepository {
 
       console.log("Document updated:", documentId);
       if (error) {
+        console.error("Failed to update document:", error);
         throw new Error(`Error updating document: ${error.message}`);
       }
 
@@ -460,7 +467,8 @@ export class DocumentRepository {
     documentId: string,
     content: DeltaOperation[],
     delta: DeltaOperation[],
-    userId: string
+    userId: string,
+    documentContent?: any
   ): Promise<void> {
     try {
       const document = await this.getDocumentById(documentId);
@@ -474,10 +482,11 @@ export class DocumentRepository {
         userId,
         userName: "",
         timestamp: Date.now(),
+        content,
       });
 
       // Update the document content
-      await this.updateDocument(documentId, { content });
+      await this.updateDocument(documentId, content, documentContent);
     } catch (error) {
       console.error("Failed to update document content:", error);
       throw error;

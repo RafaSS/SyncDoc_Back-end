@@ -156,7 +156,12 @@ export class SocketService {
               "Sending document content: 💕💕💕💕💕💕",
               document.content
             );
-            socket.emit("load-document", document.content);
+            socket.emit(
+              "load-document",
+              document.content,
+              document.deltas,
+              document.documentContent
+            );
           } else {
             // If no content exists, send an empty delta
             console.log("Sending empty document content");
@@ -186,7 +191,8 @@ export class SocketService {
           documentId: string,
           delta: DeltaOperation[],
           source: string,
-          userId: string
+          userId: string,
+          content: any
         ) => {
           const userName = this.activeUsers[socket.id].userName;
 
@@ -194,13 +200,14 @@ export class SocketService {
           await this.documentService.updateDocumentContent(
             documentId,
             delta,
-            userId
+            userId,
+            content
           );
 
           // Send the delta to all other clients in the room
-          socket
+          await socket
             .to(documentId)
-            .emit("text-change", documentId, delta, source, userId);
+            .emit("text-change", documentId, delta, source, userId, content);
 
           console.log(
             `Document ${documentId} updated by ${userName || "unknown user"}`
@@ -218,8 +225,10 @@ export class SocketService {
 
       socket.on(
         "cursor-move",
-        (documentId: string, cursorPosition: any, userId: string) => {
-          socket.to(documentId).emit("cursor-move", userId, cursorPosition);
+        async (documentId: string, cursorPosition: any, userId: string) => {
+          await socket
+            .to(documentId)
+            .emit("cursor-move", userId, cursorPosition);
         }
       );
 

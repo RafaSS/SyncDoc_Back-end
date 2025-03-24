@@ -1,8 +1,10 @@
 import { defineStore } from "pinia";
-import { ref, reactive, computed } from "vue";
+import { ref, reactive } from "vue";
 import { io } from "socket.io-client";
 import { v4 as uuid } from "uuid";
 import type { Document, Delta, CursorPosition } from "../types";
+import { QuillEditor } from "@vueup/vue-quill";
+import QuillCursors from "quill-cursors";
 
 export const useDocumentStore = defineStore("document", () => {
   // State
@@ -12,7 +14,7 @@ export const useDocumentStore = defineStore("document", () => {
   const document = reactive<Document>({
     id: "",
     title: "Untitled Document",
-    content: null,
+    content: [],
     users: {},
     deltas: [],
     createdAt: new Date(),
@@ -43,8 +45,27 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   // Store the Quill instance for later use
-  function setQuillInstance(quillComponentOrInstance: any) {
+  function setQuillInstance(
+    quillComponentOrInstance: InstanceType<typeof QuillEditor>,
+    documentId: string
+  ) {
     quillInstance.value = quillComponentOrInstance;
+    document.id = documentId;
+
+    // Configure Quill with cursors module
+    const quill = quillInstance.value.getQuill();
+    if (quill) {
+      // Initialize cursor module if needed
+      if (!quill.getModule("cursors")) {
+        const cursorsModule = new QuillCursors(quill, {
+          hideDelayMs: 5000,
+          transformOnTextChange: true,
+        });
+        quill.addModule("cursors", cursorsModule);
+      }
+    }
+    joinDocument(document.id);
+    console.log("Joined document:", document.id);
   }
 
   // Socket event handlers
@@ -56,16 +77,25 @@ export const useDocumentStore = defineStore("document", () => {
       joinDocument(document.id);
     }
 
-    socket.value.on("load-document", (content: any) => {
-      console.log("Store received document content:", JSON.stringify(content));
+    socket.value.on("load-document", (content: [], documentContent: any) => {
+      console.log(
+        "Store received document content:",
+        JSON.stringify(content.length)
+      );
+      // Validate content
+      if (!Array.isArray(content) || content.length === 0) {
+        console.log("Invalid document content received");
+        quillInstance.value?.getQuill()?.setText("");
+        quillInstance.value?.getQuill()?.enable();
+        return;
+      }
       document.content = content; // Store original content
 
       // Update Quill if it exists
       if (quillInstance.value) {
-        for (const key in content) {
-          quillInstance.value.updateContents(content[key]);
-        }
-        quillInstance.value.enable();
+        console.log("Updating Quill with document content", documentContent);
+        quillInstance.value.getQuill().setContents(JSON.parse(documentContent));
+        quillInstance.value.getQuill()?.enable();
       }
     });
 
@@ -83,7 +113,7 @@ export const useDocumentStore = defineStore("document", () => {
     });
     socket.value.on(
       "text-change",
-      (
+      async (
         docId: string,
         delta: Delta,
         source: string,
@@ -101,7 +131,7 @@ export const useDocumentStore = defineStore("document", () => {
         console.log("Quill instance:", userIdClient, userId.value);
         if (quillInstance.value && userIdClient !== userId.value) {
           console.log("Updating Quill content:", delta.ops);
-          quillInstance.value.updateContents(delta.ops);
+          await quillInstance.value.getQuill().updateContents(delta.ops);
         }
       }
     );
@@ -117,6 +147,7 @@ export const useDocumentStore = defineStore("document", () => {
     socket.value.on("user-joined", (socketId: string, userName: string) => {
       // Show notification or update UI when a user joins
       console.log(`${userName} joined the document`);
+      updateUserColors([socketId]);
     });
 
     socket.value.on("user-left", (socketId: string, userName: string) => {
@@ -140,7 +171,10 @@ export const useDocumentStore = defineStore("document", () => {
 
   // Actions
   function joinDocument(documentId: string) {
-    if (!socket.value) return;
+    if (!socket.value) {
+      console.error("Socket is not initialized");
+      return;
+    }
     console.log("Joining document:", documentId, userId.value);
     document.id = documentId;
     const userName = localStorage.getItem("userName") || "Anonymous";
@@ -148,7 +182,10 @@ export const useDocumentStore = defineStore("document", () => {
   }
 
   async function createNewDocument() {
-    if (!socket.value) return;
+    if (!socket.value) {
+      console.error("Socket is not initialized");
+      return;
+    }
 
     return new Promise((resolve, reject) => {
       socket.value.emit("create-document", userId.value, (response: string) => {
@@ -165,7 +202,7 @@ export const useDocumentStore = defineStore("document", () => {
     });
   }
 
-  function sendTextChange(delta: Delta, source: string, content: any) {
+  async function sendTextChange(delta: Delta, source: string, content: any) {
     if (!socket.value || !document.id) {
       console.log("No socket or document id");
       return;
@@ -173,18 +210,21 @@ export const useDocumentStore = defineStore("document", () => {
     const safeDeltaToSend = delta && delta.ops ? delta : { ops: [] };
 
     console.log("Sending text change:", safeDeltaToSend);
-    socket.value.emit(
+    await socket.value.emit(
       "text-change",
       document.id,
       safeDeltaToSend,
       source,
       userId.value,
-      JSON.stringify(content)
+      content
     );
   }
 
   function updateTitle(title: string) {
-    if (!socket.value || !document.id) return;
+    if (!socket.value || !document.id) {
+      console.error("Socket or document id is not initialized");
+      return;
+    }
     document.title = title;
     socket.value.emit("title-change", document.id, title);
   }
@@ -192,18 +232,27 @@ export const useDocumentStore = defineStore("document", () => {
   function moveCursor(position: CursorPosition) {
     console.log("Moving cursor to:", position);
 
-    if (!socket.value || !document.id) return;
+    if (!socket.value || !document.id) {
+      console.error("Socket or document id is not initialized");
+      return;
+    }
     socket.value.emit("cursor-move", document.id, position, userId.value);
   }
 
   function leaveDocument() {
-    if (!socket.value || !document.id) return;
+    if (!socket.value || !document.id) {
+      console.error("Socket or document id is not initialized");
+      return;
+    }
     socket.value.emit("leave-document", document.id);
     resetDocument();
   }
 
   function getDocumentHistory() {
-    if (!socket.value || !document.id) return;
+    if (!socket.value || !document.id) {
+      console.error("Socket or document id is not initialized");
+      return;
+    }
     socket.value.emit("get-document-history", document.id);
   }
 
@@ -211,7 +260,7 @@ export const useDocumentStore = defineStore("document", () => {
   function resetDocument() {
     document.id = "";
     document.title = "Untitled Document";
-    document.content = null;
+    document.content = [];
     document.users = {};
     documentHistory.value = [];
   }
@@ -270,6 +319,7 @@ export const useDocumentStore = defineStore("document", () => {
     documentHistory,
     userColors,
     remoteCursors,
+    quillInstance,
 
     // Methods
     initializeSocket,

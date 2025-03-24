@@ -31,7 +31,7 @@ export interface DeltaChange {
 export interface Document {
   id: string;
   title: string;
-  content: string | null;
+  content: DeltaOperation[] | null;
   users: Record<string, string>;
   deltas: DeltaChange[];
   createdAt: Date;

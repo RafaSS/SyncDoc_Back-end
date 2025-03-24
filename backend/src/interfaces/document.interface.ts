@@ -12,6 +12,7 @@ export interface IDocument {
   createdAt: Date;
   updatedAt: Date;
   ownerId?: string;
+  documentContent?: any;
 }
 
 /**

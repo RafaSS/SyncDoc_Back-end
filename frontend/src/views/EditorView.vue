@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch, onBeforeMount } from "vue";
 import { useRoute } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
 import { QuillEditor } from "@vueup/vue-quill";
@@ -19,7 +19,6 @@ const isShowingHistoryPanel = ref(false);
 const documentTitle = ref("Untitled Document");
 const connectionStatus = ref("Connecting...");
 const connectionColor = ref("#f39c12");
-const remoteCursors = ref<Record<string, any>>({});
 
 // Cursors module
 const cursorsModule = {
@@ -49,14 +48,20 @@ const editorOptions = {
   theme: "snow",
 };
 
+onBeforeMount(() => {
+  // Leave the document when component is unmounted
+  documentStore.leaveDocument();
+});
+
 onMounted(async () => {
+  // Set Quill instance
+  if (editorRef.value) {
+    documentStore.setQuillInstance(editorRef.value, documentId.value);
+  }
+
   // Initialize socket connection
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
   documentStore.initializeSocket(SOCKET_URL);
-
-  // Join the document
-  documentStore.joinDocument(documentId.value);
-  console.log("Joined document:", documentId.value);
 
   // Watch for connection status changes
   watch(
@@ -95,43 +100,34 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   // Leave the document when component is unmounted
   documentStore.leaveDocument();
-
-  // Remove all cursor elements
-  Object.values(remoteCursors.value).forEach((cursor) => {
-    if (cursor && cursor.element) {
-      cursor.element.remove();
-    }
-  });
 });
 
 // Text change handler
 function onEditorTextChange(event: any) {
   console.log("Text change detected:", event.delta);
+  console.log("Source:", editorRef.value.getContents());
   const { delta, source } = event;
 
   if (source === "user" && editorRef.value) {
     const content = editorRef.value.getContents();
     documentStore.sendTextChange(delta, source, content);
   }
-  // Update remote cursor
-  documentStore.moveCursor(delta);
 }
 
 // Selection change handler
 function onEditorSelectionChange(event: any) {
   const { range, source } = event;
-  // Check for valid range to prevent IndexSizeError
-  if (source === "user" && range) {
-    documentStore.moveCursor(range);
+  console.log("Selection change detected:", range);
+
+  if (range && range.index !== undefined && range.length !== undefined) {
+    if (source === "user") {
+      documentStore.moveCursor(range);
+    }
   }
 }
 
 // After QuillEditor is ready
 function onEditorReady(quill: any) {
-  quill.disable();
-  // Store the Quill instance in the store
-  documentStore.setQuillInstance(quill);
-
   // Initialize cursors module if needed
   if (quill.getModule("cursors")) {
     const cursorsInstance = quill.getModule("cursors");
@@ -144,7 +140,7 @@ function onEditorReady(quill: any) {
             cursorsInstance.createCursor(
               userId,
               userData.name || "Anonymous",
-              userData.color || "#f39c12"
+              documentStore.userColors[userId] || "#f39c12"
             );
           }
         }
@@ -199,7 +195,6 @@ function updateRemoteCursorElement(userId: string, cursorData: any) {
     } catch (error) {
       console.error("Error updating cursor:", error);
     }
-    return;
   }
 }
 </script>
