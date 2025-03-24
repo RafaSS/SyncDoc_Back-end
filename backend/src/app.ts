@@ -92,10 +92,10 @@ const startServer = () => {
     console.log(`Socket.IO server running on port ${SOCKET_PORT}`);
   });
 
-  // Start the Express server separately
-  expressServer = app.listen(PORT, () => {
-    console.log(`Express server running on port ${PORT}`);
-  });
+  // // Start the Express server separately
+  // expressServer = app.listen(PORT, () => {
+  //   console.log(`Express server running on port ${PORT}`);
+  // });
 
   return server;
 };
