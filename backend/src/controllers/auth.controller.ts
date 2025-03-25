@@ -25,6 +25,15 @@ export class AuthController {
       }
 
       const result = await authService.register({ username, email, password });
+      
+      // Set auth cookie with access token, not user ID
+      res.cookie('auth_token', result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
       res.status(201).json(result);
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -49,6 +58,15 @@ export class AuthController {
       }
 
       const result = await authService.login({ email, password });
+      
+      // Set auth token in cookie - use access token, not user ID
+      res.cookie('auth_token', result.token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      });
+      
       res.json(result);
     } catch (error: any) {
       console.error("Login error:", error);
@@ -64,6 +82,10 @@ export class AuthController {
   public static async logout(req: Request, res: Response): Promise<void> {
     try {
       await authService.logout();
+      
+      // Clear auth cookie
+      res.clearCookie('auth_token');
+      
       res.json({ message: "Logout successful" });
     } catch (error: any) {
       console.error("Logout error:", error);

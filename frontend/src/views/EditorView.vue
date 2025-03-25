@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, onBeforeMount } from "vue";
+import { onMounted, ref, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
+import { useAuthStore } from "../stores/authStore";
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
-import QuillCursors from "quill-cursors";
 import UserList from "../components/UserList.vue";
 import EditorToolbar from "../components/EditorToolbar.vue";
 import ShareModal from "../components/ShareModal.vue";
 import HistoryPanel from "../components/HistoryPanel.vue";
+import QuillCursors from "quill-cursors";
 
 const route = useRoute();
 const documentStore = useDocumentStore();
@@ -20,16 +21,6 @@ const documentTitle = ref("Untitled Document");
 const connectionStatus = ref("Connecting...");
 const connectionColor = ref("#f39c12");
 
-// Cursors module
-const cursorsModule = {
-  name: "cursors",
-  module: QuillCursors,
-  options: {
-    hideDelayMs: 5000,
-    transformOnTextChange: true,
-  },
-};
-
 // Editor configuration
 const editorOptions = {
   modules: {
@@ -39,7 +30,14 @@ const editorOptions = {
       maxStack: 100,
       userOnly: true,
     },
-    cursors: cursorsModule,
+    cursors: {
+      name: "cursors",
+      module: QuillCursors,
+      options: {
+        hideDelayMs: 5000,
+        transformOnTextChange: true,
+      },
+    },
     selection: {
       transformOnTextChange: true,
     },
@@ -48,12 +46,11 @@ const editorOptions = {
   theme: "snow",
 };
 
-onBeforeMount(() => {
-  // Leave the document when component is unmounted
-  documentStore.leaveDocument();
-});
-
 onMounted(async () => {
+  // Initialize the auth store to ensure cookie is set
+  const authStore = useAuthStore();
+  await authStore.initialize();
+
   // Set Quill instance
   if (editorRef.value) {
     documentStore.setQuillInstance(editorRef.value, documentId.value);
@@ -109,7 +106,7 @@ function onEditorTextChange(event: any) {
   const { delta, source } = event;
 
   if (source === "user" && editorRef.value) {
-    const content = editorRef.value.getContents();
+    const content = JSON.stringify(editorRef.value.getContents());
     documentStore.sendTextChange(delta, source, content);
   }
 }
@@ -139,7 +136,7 @@ function onEditorReady(quill: any) {
           if (userId !== documentStore.userId) {
             cursorsInstance.createCursor(
               userId,
-              userData.name || "Anonymous",
+              userData || "Anonymous",
               documentStore.userColors[userId] || "#f39c12"
             );
           }
@@ -167,17 +164,7 @@ function updateTitle() {
 }
 
 function updateRemoteCursorElement(userId: string, cursorData: any) {
-  if (!editorRef.value?.getQuill() || !cursorData || !cursorData.range) return;
-
-  // Validate the cursor range to prevent IndexSizeError
-  if (
-    cursorData.range.index === undefined ||
-    cursorData.range.index === null ||
-    cursorData.range.index < 0 ||
-    cursorData.range.index >= 4294967295
-  ) {
-    return;
-  }
+  if (!editorRef.value?.getQuill() || !cursorData) return;
 
   const quill = editorRef.value.getQuill();
   const cursorsModule = quill.getModule("cursors");
@@ -220,7 +207,6 @@ function updateRemoteCursorElement(userId: string, cursorData: any) {
         <QuillEditor
           ref="editorRef"
           :options="editorOptions"
-          :modules="[cursorsModule]"
           toolbar="#toolbar"
           @text-change="onEditorTextChange"
           @selection-change="onEditorSelectionChange"

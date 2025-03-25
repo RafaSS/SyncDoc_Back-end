@@ -5,14 +5,17 @@ import {
 } from "../../middleware/auth.middleware";
 import { createServices } from "../../config/service-factory";
 import { supabase } from "../../config/supabase";
+import { IDocumentService } from "../../interfaces/document-service.interface";
+import cookieParser from "cookie-parser";
 
 const router = Router();
+router.use(cookieParser());
 
 // Determine if we're in test mode
 const isTest = process.env.NODE_ENV === "test";
 
 // In test mode, use the mock document service
-let documentService;
+let documentService: IDocumentService;
 if (isTest) {
   // Import the mockDocumentService from test-helpers
   const { mockDocumentService } = require("../../test-helpers");
@@ -39,8 +42,10 @@ const ownPermMiddleware = isTest
  * @description Get all documents accessible to the user
  * @access Private
  */
-router.get("/", async (req, res) => {
+router.get("/", ...authMiddleware, async (req, res) => {
   try {
+    // Get user ID from authenticated user
+    const userId = (req as any).user?.id;
     const documentList = await documentService.getAllDocuments();
     res.json(documentList);
   } catch (error) {
@@ -54,9 +59,8 @@ router.get("/", async (req, res) => {
  * @description Get a document by ID
  * @access Private
  */
-router.get("/:id", async (req, res) => {
+router.get("/:id", ...viewPermMiddleware, async (req, res) => {
   const { id } = req.params;
-  console.log("Document:", document);
   try {
     const document = await documentService.getDocumentById(id);
 
@@ -108,10 +112,12 @@ router.get("/:id/history", ...viewPermMiddleware, async (req, res) => {
  * @description Create a new document
  * @access Private
  */
-router.post("/", async (req, res) => {
+router.post("/", ...authMiddleware, async (req, res) => {
   console.log("Creating document...🎶🎶🎶");
   try {
+    // Get user ID from authenticated user
     const userId = (req as any).user?.id;
+    console.log("User ID:", userId);
     const { id } = await documentService.createDocument(
       undefined,
       undefined,

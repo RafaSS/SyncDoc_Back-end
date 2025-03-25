@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
+import { apiGet, apiPost } from "../utils/api";
 import DocumentList from "../components/DocumentList.vue";
 
 const router = useRouter();
@@ -12,19 +13,14 @@ const documents = ref<Array<{ id: string; title: string; userCount: number }>>(
 );
 
 onMounted(async () => {
-  // // Initialize the socket connection
+  // Initialize the socket connection
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
   documentStore.initializeSocket(SOCKET_URL);
 
   try {
     // Fetch documents from API
     const userId = documentStore.userId;
-    const response = await fetch(
-      `${
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api"
-      }/documents?userId=${userId}`
-    );
-    documents.value = await response.json();
+    documents.value = await apiGet<Array<{ id: string; title: string; userCount: number }>>(`/documents?userId=${userId}`);
   } catch (error) {
     console.error("Failed to fetch documents:", error);
   } finally {
@@ -32,27 +28,12 @@ onMounted(async () => {
   }
 });
 
+//pass credentials
 async function createNewDocument() {
   try {
-    const response = await fetch(
-      `${
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api"
-      }/documents`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (data.id) {
-      router.push({ name: "editor", params: { id: data.id } });
+    const response = await apiPost<{ id: string }>('/documents', {});
+    if (response.id) {
+      router.push({ name: "editor", params: { id: response.id } });
     }
   } catch (error) {
     console.error("Error creating new document:", error);

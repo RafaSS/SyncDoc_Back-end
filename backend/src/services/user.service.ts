@@ -1,7 +1,12 @@
-import { IAuthResponse, IUser, IUserCredentials, IUserRegistration } from '../interfaces/user.interface';
-import { IUserService } from '../interfaces/user-service.interface';
-import { UserRepository } from '../models/repositories/user.repository';
-import { v4 as uuidv4 } from 'uuid';
+import {
+  IAuthResponse,
+  IUser,
+  IUserCredentials,
+  IUserRegistration,
+} from "../interfaces/user.interface";
+import { IUserService } from "../interfaces/user-service.interface";
+import { UserRepository } from "../models/repositories/user.repository";
+import { v4 as uuidv4 } from "uuid";
 
 export class UserService implements IUserService {
   private userRepository: UserRepository;
@@ -15,7 +20,7 @@ export class UserService implements IUserService {
     // Check if user already exists
     const existingUser = await this.userRepository.findByEmail(userData.email);
     if (existingUser) {
-      throw new Error('User with this email already exists');
+      throw new Error("User with this email already exists");
     }
 
     // Create new user
@@ -24,7 +29,7 @@ export class UserService implements IUserService {
       email: userData.email,
       password: userData.password, // In a real app, we would hash the password
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     });
 
     // Generate token
@@ -35,7 +40,7 @@ export class UserService implements IUserService {
     const { password, ...userWithoutPassword } = user;
     return {
       user: userWithoutPassword,
-      token
+      token,
     };
   }
 
@@ -43,12 +48,12 @@ export class UserService implements IUserService {
     // Find user by email
     const user = await this.userRepository.findByEmail(credentials.email);
     if (!user) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     // Verify password (in a real app, we would compare hashed passwords)
     if (user.password !== credentials.password) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     // Generate token
@@ -59,11 +64,13 @@ export class UserService implements IUserService {
     const { password, ...userWithoutPassword } = user;
     return {
       user: userWithoutPassword,
-      token
+      token,
     };
   }
 
-  public async getUserById(id: string): Promise<Omit<IUser, 'password'> | null> {
+  public async getUserById(
+    id: string
+  ): Promise<Omit<IUser, "password"> | null> {
     const user = await this.userRepository.findById(id);
     if (!user) {
       return null;
@@ -75,9 +82,9 @@ export class UserService implements IUserService {
   }
 
   public async updateUser(
-    id: string, 
-    userData: Partial<Omit<IUser, 'id' | 'password'>>
-  ): Promise<Omit<IUser, 'password'> | null> {
+    id: string,
+    userData: Partial<Omit<IUser, "id" | "password">>
+  ): Promise<Omit<IUser, "password"> | null> {
     const updatedUser = await this.userRepository.update(id, userData);
     if (!updatedUser) {
       return null;
@@ -94,10 +101,12 @@ export class UserService implements IUserService {
     return this.userRepository.delete(id);
   }
 
-  public async validateToken(token: string): Promise<Omit<IUser, 'password'> | null> {
+  public async validateToken(
+    token: string
+  ): Promise<Omit<IUser, "password"> | null> {
     // Find user ID by token
     let userId: string | null = null;
-    
+
     for (const [id, storedToken] of this.tokenStorage.entries()) {
       if (storedToken === token) {
         userId = id;

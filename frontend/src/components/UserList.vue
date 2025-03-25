@@ -1,12 +1,22 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useDocumentStore } from '../stores/documentStore'
 
 const documentStore = useDocumentStore()
 const isDropdownOpen = ref(false)
+const users = ref<Record<string, string>>({})
+
+// Watch for user list changes
+watch(
+  () => documentStore.document.users,
+  (newUsers) => {
+    users.value = newUsers
+  },
+  { deep: true }
+)
 
 const userCount = computed(() => {
-  return Object.keys(documentStore.document.users).length
+  return Object.keys(users.value).length
 })
 
 function toggleDropdown() {
@@ -41,20 +51,16 @@ document.addEventListener('click', closeDropdown)
       :class="{ 'active': isDropdownOpen }"
     >
       <div class="user-list-content">
-        <div 
-          v-for="(name, id) in documentStore.document.users" 
-          :key="id"
-          class="user-item"
-        >
-          <div 
-            class="user-color" 
-            :style="{ backgroundColor: documentStore.userColors[id] || '#ccc' }"
-          ></div>
-          <span class="user-name">
-            {{ name }}
-            <span v-if="id === documentStore.userId">(You)</span>
-          </span>
-        </div>
+        <ul>
+          <li 
+            v-for="(userName, userId) in users" 
+            :key="userId" 
+            :style="{ color: documentStore.userColors[userId] || '#000' }"
+          >
+            {{ userName }}
+            <span v-if="userId === documentStore.userId">(You)</span>
+          </li>
+        </ul>
         
         <div v-if="userCount === 0" class="no-users">
           No active collaborators
@@ -107,26 +113,20 @@ document.addEventListener('click', closeDropdown)
   overflow-y: auto;
 }
 
-.user-item {
-  display: flex;
-  align-items: center;
-  padding: 0.5rem;
-  border-radius: 4px;
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
 
-.user-item:hover {
-  background-color: #f5f5f5;
+li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+  cursor: default;
 }
 
-.user-color {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  margin-right: 0.5rem;
-}
-
-.user-name {
-  font-size: 0.9rem;
+li:last-child {
+  border-bottom: none;
 }
 
 .no-users {

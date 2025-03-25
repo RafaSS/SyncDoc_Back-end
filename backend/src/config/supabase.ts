@@ -16,11 +16,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
  */
 export const TABLES = {
   DOCUMENTS: "documents",
-  DOCUMENT_CHANGES: "document_changes",
-  DOCUMENT_USERS: "document_users",
-  USERS: "users",
-  USER_DOCUMENTS: "user_documents",
-  USER_PROFILES: "user_profiles",
+  DOCUMENT_PERMISSIONS: "document_permissions",
+  DOCUMENT_HISTORY: "document_history",
+  PROFILES: "profiles",
 };
 
 export type Database = {

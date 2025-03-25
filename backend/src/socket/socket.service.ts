@@ -1,6 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { IDocumentService } from "../interfaces/document-service.interface";
 import { Delta } from "../interfaces/delta.interface";
+import jwt from "jsonwebtoken";
 import { supabase } from "../config/supabase";
 import { DeltaOperation } from "../types";
 
@@ -12,6 +13,7 @@ export class SocketService {
       documentId: string;
       userName: string;
       userId?: string;
+      isAuthenticated: boolean;
     };
   } = {};
   private isTest = process.env.NODE_ENV === "test";
@@ -22,10 +24,20 @@ export class SocketService {
     this.setupSocketHandlers();
   }
 
-  public setupSocketHandlers(): void {
+  private setupSocketHandlers(): void {
     console.log("Setting up socket handlers", this.io.sockets.name);
     this.io.on("connection", (socket: Socket) => {
-      console.log("New user connected:", socket.id, "🤷‍♀️");
+      console.log("Client connected:", socket.id);
+
+      // Get userId directly from auth object
+      const userId = socket.handshake.auth.userId;
+      if (userId) {
+        console.log("User identified:", userId);
+        // Store userId on socket for later use
+        (socket as any).userId = userId;
+      } else {
+        console.log("Anonymous connection (no userId provided)");
+      }
 
       // Authentication middleware for Socket.IO
       socket.use(async ([event, ...args], next) => {
@@ -42,27 +54,26 @@ export class SocketService {
           return next();
         }
 
-        // Check token in handshake auth
-        const token = socket.handshake.auth.token;
-        if (!token) {
-          console.log(
-            "No token provided, but proceeding anyway for development"
-          );
+        // Allow connection with userId
+        if ((socket as any).userId) {
           return next();
         }
 
-        try {
-          const { data, error } = await supabase.auth.getUser(token);
-          if (error || !data.user) {
-            return next(new Error("Invalid token"));
-          }
-
-          // Store user ID in the socket for later use
-          (socket as any).userId = data.user.id;
-          next();
-        } catch (error) {
-          next(new Error("Authentication error"));
+        // No auth, reject for protected events
+        if (
+          [
+            "join",
+            "leave",
+            "text-change",
+            "cursor-change",
+            "title-change",
+          ].includes(event)
+        ) {
+          return next(new Error("Authentication required"));
         }
+
+        // Allow other events
+        next();
       });
 
       // Handle authentication
@@ -100,6 +111,7 @@ export class SocketService {
             // Create document with the provided user ID
             const result = await this.documentService.createDocument(
               "Untitled Document",
+              { ops: [] },
               userId
             );
             console.log("Document created with ID:", result.id);
@@ -118,25 +130,31 @@ export class SocketService {
       socket.on(
         "join-document",
         async (documentId: string, userName: string, userId: string) => {
-          console.log("User:", userId, "joining document:", documentId);
           socket.join(documentId);
 
-          // Store user in active users cache
+          // Check if userId is a temporary ID (it might or might not have a temp_ prefix)
+          // Authenticated users will have UUIDs from Supabase that look different
+          const isAuthenticatedUser = userId && 
+            (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) && 
+            !userId.startsWith('temp_');
+          
+          // Store user in active users cache with additional auth info
           this.activeUsers[socket.id] = {
             documentId,
             userName,
             userId,
+            isAuthenticated: isAuthenticatedUser
           };
+          console.log(`User ${userId} added to active users cache (authenticated: ${isAuthenticatedUser})`);
 
-          // Get document from database or create if it doesn't exist
+          // Get or create document
           let document = await this.documentService.getDocumentById(documentId);
-
           if (!document) {
-            console.log("Document not found, creating new document...🐃🐃🐃");
             // Create a new document if it doesn't exist
             const result = await this.documentService.createDocument(
               "Untitled Document",
-              userId
+              { ops: [] },
+              this.activeUsers[socket.id].userId
             );
             documentId = result.id;
             document = await this.documentService.getDocumentById(documentId);
@@ -147,41 +165,37 @@ export class SocketService {
           }
 
           // Add user to document
-          console.log("Adding user to document:", userId);
-          await this.documentService.addUserToDocument(documentId, userId);
+          await this.documentService.addUserToDocument(
+            documentId,
+            socket.id,
+            userName,
+            this.activeUsers[socket.id].userId || socket.id
+          );
 
-          // Get the document content
+          // Get the updated document
+          document = await this.documentService.getDocumentById(documentId);
+
+          // Send the document content to the client
           if (document && document.content) {
             console.log(
               "Sending document content: 💕💕💕💕💕💕",
               document.content
             );
-            socket.emit(
-              "load-document",
-              document.content,
-              document.deltas,
-              document.documentContent
-            );
+            socket.emit("load-document", document.content, document.deltas);
           } else {
             // If no content exists, send an empty delta
             console.log("Sending empty document content");
             socket.emit("load-document", { ops: [] });
           }
 
-          // Get users in the document
-          const users = await this.documentService.getDocumentUsers(documentId);
-
-          // Notify others that user joined
+          // Notify other users that a new user joined
           socket.to(documentId).emit("user-joined", socket.id, userName);
 
-          // Send updated user list to all clients in room
+          // Send the updated user list to all users in the room
+          const users = document ? document.users : {};
           this.io.to(documentId).emit("user-list", users);
 
-          console.log(
-            `User ${userName} (${
-              userId || "anonymous"
-            }) joined document ${documentId}`
-          );
+          console.log(`User ${userName} joined document ${documentId}`);
         }
       );
 
@@ -197,11 +211,16 @@ export class SocketService {
           const userName = this.activeUsers[socket.id].userName;
 
           // Update document content in database
+          const deltaChange: Delta = {
+            ops: delta,
+          };
           await this.documentService.updateDocumentContent(
             documentId,
-            delta,
-            userId,
-            content
+            JSON.stringify(content),
+            deltaChange,
+            socket.id,
+            userName,
+            this.activeUsers[socket.id].userId
           );
 
           // Send the delta to all other clients in the room
@@ -240,7 +259,10 @@ export class SocketService {
           const { documentId, userName, userId } = this.activeUsers[socket.id];
 
           // Remove user from document in database
-          await this.documentService.removeUserFromDocument(documentId, userId);
+          await this.documentService.removeUserFromDocument(
+            documentId,
+            userId || socket.id
+          );
 
           // Get updated user list
           const users = await this.documentService.getDocumentUsers(documentId);
@@ -253,6 +275,38 @@ export class SocketService {
           delete this.activeUsers[socket.id];
 
           console.log(`User ${userName} left document ${documentId}`);
+        } else {
+          // Find all documents where the user is present
+          const documents = await this.documentService.getAllDocuments();
+
+          for (const doc of documents) {
+            const document = await this.documentService.getDocumentById(doc.id);
+            if (!document) continue;
+
+            // Check if the user is in this document
+            if (document.users[socket.id]) {
+              const userName = document.users[socket.id];
+
+              // Remove user from document
+              await this.documentService.removeUserFromDocument(
+                doc.id,
+                socket.id
+              );
+
+              // Notify other users
+              this.io.to(doc.id).emit("user-left", socket.id, userName);
+
+              // Send updated user list
+              const updatedDoc = await this.documentService.getDocumentById(
+                doc.id
+              );
+              if (updatedDoc) {
+                this.io.to(doc.id).emit("user-list", updatedDoc.users);
+              }
+
+              console.log(`User ${userName} left document ${doc.id}`);
+            }
+          }
         }
       });
     });
