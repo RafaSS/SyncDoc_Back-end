@@ -8,6 +8,7 @@ import { DeltaOperation } from "../types";
 export class SocketService {
   private io: Server;
   private documentService: IDocumentService;
+  private jwt: any;
   private activeUsers: {
     [socketId: string]: {
       documentId: string;
@@ -21,6 +22,7 @@ export class SocketService {
   constructor(io: Server, documentService: IDocumentService) {
     this.io = io;
     this.documentService = documentService;
+    this.jwt = jwt;
     this.setupSocketHandlers();
   }
 
@@ -30,13 +32,16 @@ export class SocketService {
       console.log("Client connected:", socket.id);
 
       // Get userId directly from auth object
-      const userId = socket.handshake.auth.userId;
-      if (userId) {
+      const userId = socket.handshake.auth.token;
+      if (userId && userId !== "undefined") {
         console.log("User identified:", userId);
         // Store userId on socket for later use
         (socket as any).userId = userId;
       } else {
-        console.log("Anonymous connection (no userId provided)");
+        console.log(
+          "Anonymous connection (no userId provided)",
+          socket.handshake.auth
+        );
       }
 
       // Authentication middleware for Socket.IO
@@ -134,18 +139,30 @@ export class SocketService {
 
           // Check if userId is a temporary ID (it might or might not have a temp_ prefix)
           // Authenticated users will have UUIDs from Supabase that look different
-          const isAuthenticatedUser = userId && 
-            (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) && 
-            !userId.startsWith('temp_');
-          
+          const isAuthenticatedUser =
+            userId &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              userId
+            ) &&
+            !userId.startsWith("temp_");
+
+          // Set a standardized username for better identification
+          let displayName = userName || "Anonymous";
+          if (!isAuthenticatedUser && !displayName.startsWith("Visitor")) {
+            displayName = `Visitor ${displayName}`;
+          }
+
           // Store user in active users cache with additional auth info
           this.activeUsers[socket.id] = {
             documentId,
-            userName,
+            userName: displayName,
             userId,
-            isAuthenticated: isAuthenticatedUser
+            isAuthenticated: isAuthenticatedUser,
           };
-          console.log(`User ${userId} added to active users cache (authenticated: ${isAuthenticatedUser})`);
+
+          console.log(
+            `User ${userId} (${displayName}) added to document ${documentId} (authenticated: ${isAuthenticatedUser})`
+          );
 
           // Get or create document
           let document = await this.documentService.getDocumentById(documentId);
@@ -168,7 +185,7 @@ export class SocketService {
           await this.documentService.addUserToDocument(
             documentId,
             socket.id,
-            userName,
+            displayName,
             this.activeUsers[socket.id].userId || socket.id
           );
 
@@ -189,15 +206,44 @@ export class SocketService {
           }
 
           // Notify other users that a new user joined
-          socket.to(documentId).emit("user-joined", socket.id, userName);
+          socket.to(documentId).emit("user-joined", socket.id, displayName);
 
           // Send the updated user list to all users in the room
           const users = document ? document.users : {};
           this.io.to(documentId).emit("user-list", users);
 
-          console.log(`User ${userName} joined document ${documentId}`);
+          console.log(`User ${displayName} joined document ${documentId}`);
         }
       );
+
+      socket.on("get-users", async (documentId: string) => {
+        try {
+          // Get document users from the document service
+          const documentUsers = await this.documentService.getDocumentUsers(
+            documentId
+          );
+
+          // Also add current active users from socket connections
+          // This ensures visitors are included even if they're not in the database
+          const activeUsersForDocument = Object.entries(this.activeUsers)
+            .filter(([_, user]) => user.documentId === documentId)
+            .reduce((acc, [socketId, user]) => {
+              // Use socket ID as user ID for visitors without a real userId
+              const userId = user.userId || socketId;
+              acc[userId] = user.userName;
+              return acc;
+            }, {} as Record<string, string>);
+
+          // Merge both sets of users, with active socket users taking precedence
+          const allUsers = { ...documentUsers, ...activeUsersForDocument };
+
+          // Send the merged user list to the client
+          socket.emit("user-list", allUsers);
+        } catch (error) {
+          console.error("Error getting document users:", error);
+          socket.emit("error", "Failed to get document users");
+        }
+      });
 
       socket.on(
         "text-change",
@@ -216,7 +262,7 @@ export class SocketService {
           };
           await this.documentService.updateDocumentContent(
             documentId,
-            JSON.stringify(content),
+            content,
             deltaChange,
             socket.id,
             userName,

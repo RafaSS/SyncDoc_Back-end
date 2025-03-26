@@ -67,7 +67,7 @@ export interface DocumentPermission {
   id: string;
   user_id: string;
   document_id: string;
-  permission_level: 'read' | 'write' | 'admin';
+  permission_level: "read" | "write" | "admin";
   created_at: string;
 }
 
@@ -83,6 +83,14 @@ export interface DocumentSummary {
 export interface CursorPosition {
   index: number;
   length: number;
+}
+
+export interface DocumentHistory {
+  id: string;
+  document_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface User {

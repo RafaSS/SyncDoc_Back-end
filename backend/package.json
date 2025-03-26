@@ -19,6 +19,7 @@
     "@supabase/supabase-js": "^2.49.1",
     "@types/cookie": "^1.0.0",
     "@types/jsonwebtoken": "^9.0.9",
+    "@types/quill": "^2.0.14",
     "@vueup/vue-quill": "^1.2.0",
     "cookie": "^1.0.2",
     "cookie-parser": "^1.4.6",

@@ -29,7 +29,7 @@ export const setCookie = (
     sameSite = "lax",
   } = options;
 
-  console.log("Setting cookie:", name, value, options);
+  // console.log("Setting cookie:", name, value, options);
   let cookieString = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
 
   if (days) {

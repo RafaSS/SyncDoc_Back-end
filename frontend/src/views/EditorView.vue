@@ -2,7 +2,7 @@
 import { onMounted, ref, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
-import { useAuthStore } from "../stores/authStore";
+import { useSocketStore } from "../stores/socketStore";
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import UserList from "../components/UserList.vue";
@@ -13,6 +13,7 @@ import QuillCursors from "quill-cursors";
 
 const route = useRoute();
 const documentStore = useDocumentStore();
+const socketStore = useSocketStore();
 const documentId = ref(route.params.id as string);
 const editorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
 const isShowingShareModal = ref(false);
@@ -47,143 +48,134 @@ const editorOptions = {
 };
 
 onMounted(async () => {
-  // Initialize the auth store to ensure cookie is set
-  const authStore = useAuthStore();
-  await authStore.initialize();
+  // Initialize the auth and document store
+  await documentStore.initialize();
+
+  // Initialize socket store if needed
+  if (!socketStore.initialized) {
+    socketStore.initialize();
+  }
+
+  // Initialize socket connection
+  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
+
+  // Setup connection status monitoring
+  socketStore.on("connect", () => {
+    connectionStatus.value = "Connected";
+    connectionColor.value = "#27ae60"; // Green for connected
+  });
+
+  socketStore.on("disconnect", () => {
+    connectionStatus.value = "Disconnected";
+    connectionColor.value = "#e74c3c"; // Red for disconnected
+  });
+
+  socketStore.on("connect_error", () => {
+    connectionStatus.value = "Connection Error";
+    connectionColor.value = "#e74c3c"; // Red for error
+  });
+
+  // Then initialize the document store with socket
+  documentStore.initializeSocket(SOCKET_URL);
 
   // Set Quill instance
   if (editorRef.value) {
     documentStore.setQuillInstance(editorRef.value, documentId.value);
   }
 
-  // Initialize socket connection
-  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
-  documentStore.initializeSocket(SOCKET_URL);
-
-  // Watch for connection status changes
-  watch(
-    () => documentStore.connected,
-    (newStatus) => {
-      connectionStatus.value = newStatus ? "Connected" : "Disconnected";
-      connectionColor.value = newStatus ? "#27ae60" : "#e74c3c";
-    }
-  );
-
-  // Watch for document title changes
+  // Update title from document store
   watch(
     () => documentStore.document.title,
     (newTitle) => {
-      if (newTitle) {
-        documentTitle.value = newTitle;
-      }
+      documentTitle.value = newTitle;
     }
-  );
-
-  // Watch for remote cursor updates
-  watch(
-    () => documentStore.remoteCursors,
-    (cursors) => {
-      for (const userId in cursors) {
-        if (userId !== documentStore.userId) {
-          const cursorData = cursors[userId];
-          updateRemoteCursorElement(userId, cursorData);
-        }
-      }
-    },
-    { deep: true }
   );
 });
 
 onBeforeUnmount(() => {
-  // Leave the document when component is unmounted
+  // Clean up and leave document
   documentStore.leaveDocument();
+  documentStore.disconnect();
 });
 
 // Text change handler
-function onEditorTextChange(event: any) {
-  console.log("Text change detected:", event.delta);
-  console.log("Source:", editorRef.value.getContents());
-  const { delta, source } = event;
+function onEditorTextChange(delta: any, _oldContents: any, source: string) {
+  if (source !== "user" || !editorRef.value) return;
 
-  if (source === "user" && editorRef.value) {
-    const content = JSON.stringify(editorRef.value.getContents());
-    documentStore.sendTextChange(delta, source, content);
-  }
+  const quill = editorRef.value.getQuill();
+  const content = JSON.stringify(quill.getContents());
+
+  // Send delta to server through document store
+  documentStore.sendTextChange(delta, source, content);
 }
 
 // Selection change handler
-function onEditorSelectionChange(event: any) {
-  const { range, source } = event;
-  console.log("Selection change detected:", range);
+function onEditorSelectionChange(range: any, _oldRange: any, source: string) {
+  if (source !== "user" || !range || !editorRef.value) return;
 
-  if (range && range.index !== undefined && range.length !== undefined) {
-    if (source === "user") {
-      documentStore.moveCursor(range);
-    }
-  }
+  // Send cursor update to server
+  documentStore.moveCursor({
+    range,
+    userId: documentStore.userId,
+    username: documentStore.userName,
+  });
 }
 
 // After QuillEditor is ready
 function onEditorReady(quill: any) {
-  // Initialize cursors module if needed
-  if (quill.getModule("cursors")) {
-    const cursorsInstance = quill.getModule("cursors");
+  console.log("Quill editor is ready");
 
-    // Set up existing cursors from document
-    if (documentStore.document.users) {
-      Object.entries(documentStore.document.users).forEach(
-        ([userId, userData]: [string, any]) => {
-          if (userId !== documentStore.userId) {
-            cursorsInstance.createCursor(
-              userId,
-              userData || "Anonymous",
-              documentStore.userColors[userId] || "#f39c12"
-            );
-          }
-        }
-      );
-    }
-  }
+  // Register cursor event handlers
+  quill.on("selection-change", (range: any, oldRange: any, source: string) => {
+    onEditorSelectionChange(range, oldRange, source);
+  });
+
+  // Enable editor after initialization
+  quill.enable();
+
+  // Request document history
+  documentStore.getDocumentHistory();
 }
 
+// Toggle share modal
 function showShareModal() {
   isShowingShareModal.value = true;
 }
 
+// Toggle history panel
 function toggleHistoryPanel() {
   isShowingHistoryPanel.value = !isShowingHistoryPanel.value;
-
-  // Fetch document history if showing the panel
   if (isShowingHistoryPanel.value) {
     documentStore.getDocumentHistory();
   }
 }
 
+// Update document title
 function updateTitle() {
   documentStore.updateTitle(documentTitle.value);
 }
 
-function updateRemoteCursorElement(userId: string, cursorData: any) {
-  if (!editorRef.value?.getQuill() || !cursorData) return;
+// function updateRemoteCursorElement(userId: string, cursorData: any) {
+//   if (!editorRef.value?.getQuill() || !cursorData) return;
 
-  const quill = editorRef.value.getQuill();
-  const cursorsModule = quill.getModule("cursors");
+//   const quill = editorRef.value.getQuill();
+//   const cursorsModule = quill.getModule("cursors");
 
-  if (cursorsModule) {
-    try {
-      // Update cursor through the module
-      cursorsModule.createCursor(
-        userId,
-        cursorData.name || "Anonymous",
-        cursorData.color || "#f39c12"
-      );
-      cursorsModule.moveCursor(userId, cursorData.range);
-      cursorsModule.toggleFlag(userId, true);
-    } catch (error) {
-      console.error("Error updating cursor:", error);
-    }
-  }
-}
+//   if (cursorsModule) {
+//     try {
+//       // Update cursor through the module
+//       cursorsModule.createCursor(
+//         userId,
+//         cursorData.name || "Anonymous",
+//         cursorData.color || "#f39c12"
+//       );
+//       cursorsModule.moveCursor(userId, cursorData.range);
+//       cursorsModule.toggleFlag(userId, true);
+//     } catch (error) {
+//       console.error("Error updating cursor:", error);
+//     }
+//   }
+// }
 </script>
 
 <template>
@@ -216,7 +208,7 @@ function updateRemoteCursorElement(userId: string, cursorData: any) {
 
       <HistoryPanel
         v-if="isShowingHistoryPanel"
-        :history="documentStore.documentHistory"
+        :history="documentStore.document.deltas"
         @close="isShowingHistoryPanel = false"
       />
     </main>

@@ -40,11 +40,12 @@ router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
 
   // Initialize auth state if not already done
-  if (!authStore.user) {
+  if (!authStore.initialized) {
+    console.error("Initializing auth store in router");
     await authStore.initialize();
   }
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
     next("/login");
   } else {
     next();

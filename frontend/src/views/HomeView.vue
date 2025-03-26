@@ -14,13 +14,16 @@ const documents = ref<Array<{ id: string; title: string; userCount: number }>>(
 
 onMounted(async () => {
   // Initialize the socket connection
+  await documentStore.initialize();
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
   documentStore.initializeSocket(SOCKET_URL);
 
   try {
     // Fetch documents from API
     const userId = documentStore.userId;
-    documents.value = await apiGet<Array<{ id: string; title: string; userCount: number }>>(`/documents?userId=${userId}`);
+    documents.value = await apiGet<
+      Array<{ id: string; title: string; userCount: number }>
+    >(`/documents?userId=${userId}`);
   } catch (error) {
     console.error("Failed to fetch documents:", error);
   } finally {
@@ -31,7 +34,7 @@ onMounted(async () => {
 //pass credentials
 async function createNewDocument() {
   try {
-    const response = await apiPost<{ id: string }>('/documents', {});
+    const response = await apiPost<{ id: string }>("/documents", {});
     if (response.id) {
       router.push({ name: "editor", params: { id: response.id } });
     }

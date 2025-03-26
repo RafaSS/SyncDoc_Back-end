@@ -4,7 +4,7 @@
       <router-link to="/">SyncDoc</router-link>
     </div>
     <div class="nav-links">
-      <template v-if="authStore.isAuthenticated">
+      <template v-if="authStore.isLoggedIn">
         <router-link to="/" class="nav-link">Documents</router-link>
         <button @click="handleLogout" class="logout-btn">Logout</button>
       </template>
@@ -17,15 +17,23 @@
 </template>
 
 <script setup lang="ts">
-import { useAuthStore } from '../stores/authStore';
-import { useRouter } from 'vue-router';
+import { useAuthStore } from "../stores/authStore";
+import { useRouter } from "vue-router";
+import { onMounted } from "vue";
 
 const authStore = useAuthStore();
+// Initialize auth state if not already done
+onMounted(async () => {
+  if (!authStore.initialized) {
+    console.error("Initializing auth store in NavBar.vue");
+    await authStore.initialize();
+  }
+});
 const router = useRouter();
 
 async function handleLogout() {
   await authStore.logout();
-  router.push('/login');
+  router.push("/login");
 }
 </script>
 

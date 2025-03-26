@@ -31,7 +31,7 @@ export class DocumentRepository {
         .from(TABLES.DOCUMENTS)
         .insert({
           title,
-          content: JSON.stringify(content),
+          content, // Store content directly as JSONB
           owner_id: userId,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -177,7 +177,7 @@ export class DocumentRepository {
    */
   async updateDocument(
     documentId: string,
-    content: string,
+    content: any, // Change type to any to handle both string and object
     deltas: DeltaChange[] = [],
     otherData: Record<string, any> = {}
   ): Promise<any> {
@@ -195,7 +195,21 @@ export class DocumentRepository {
 
       // Only update content if provided
       if (content) {
-        updateData.content = content;
+        // Ensure content is stored as JSONB, not as a string
+        // If content is already an object, use it directly
+        // If it's a string that looks like JSON, parse it first
+        if (typeof content === 'string') {
+          try {
+            // Check if it's a JSON string and parse it
+            updateData.content = JSON.parse(content);
+          } catch (e) {
+            // If not valid JSON, store as a simple string
+            updateData.content = content;
+          }
+        } else {
+          // If already an object, store directly
+          updateData.content = content;
+        }
       }
 
       // Only update deltas if provided
@@ -476,7 +490,14 @@ export class DocumentRepository {
               permission_level: permission,
             };
           }
-          console.log("Error sharing document with user:", userId);
+          console.log(
+            "Error sharing document with user:",
+            userId,
+            "permission:",
+            permission,
+            "error:",
+            error
+          );
           throw new Error(`Error sharing document: ${error.message}`);
         }
 
@@ -636,20 +657,21 @@ export class DocumentRepository {
    * @param documentId Document ID
    * @param content New content
    * @param delta Delta change
-   * @param socketId User socket ID
-   * @param userName User name
-   * @param userId Optional authenticated user ID
+   * @param userId User ID making the change
+   * @param userName User name making the change
+   * @param socketId Socket ID making the change
    * @returns void
    */
   public async updateDocumentContent(
     documentId: string,
-    content: string,
+    content: any,
     delta: Delta,
-    socketId: string,
-    userName: string,
-    userId?: string
+    userId?: string,
+    userName: string = "Anonymous",
+    socketId: string = ""
   ): Promise<void> {
     try {
+      // Get document
       const document = await this.getDocumentById(documentId);
       if (!document) {
         throw new Error(`Document ${documentId} does not exist`);
@@ -673,6 +695,8 @@ export class DocumentRepository {
       }
 
       // Update the document content
+      // We'll pass the content directly to updateDocument which now handles
+      // proper JSONB conversion
       await this.updateDocument(documentId, content, deltas);
     } catch (error) {
       console.error("Failed to update document content:", error);

@@ -4,6 +4,12 @@ import { useAuthStore } from "../stores/authStore";
 import { useRouter } from "vue-router";
 
 const authStore = useAuthStore();
+
+// Initialize auth state if not already done
+if (!authStore.initialized) {
+  console.error("Initializing auth store in LoginForm.vue");
+  await authStore.initialize();
+}
 const router = useRouter();
 
 const email = ref("");
@@ -13,10 +19,10 @@ const errorMessage = ref("");
 async function handleLogin() {
   try {
     await authStore.login(email.value, password.value);
-    if (authStore.isAuthenticated.value) {
+    if (authStore.isLoggedIn) {
       router.push("/");
     } else {
-      errorMessage.value = authStore.error.value || "Login failed";
+      errorMessage.value = authStore.error || "Login failed";
     }
   } catch (error: any) {
     errorMessage.value = error.message;
@@ -53,8 +59,8 @@ async function handleLogin() {
         />
       </div>
 
-      <button type="submit" :disabled="authStore.loading.value">
-        {{ authStore.loading.value ? "Logging in..." : "Login" }}
+      <button type="submit" :disabled="authStore.loading">
+        {{ authStore.loading ? "Logging in..." : "Login" }}
       </button>
     </form>
 

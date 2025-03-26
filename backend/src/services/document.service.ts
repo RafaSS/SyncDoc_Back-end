@@ -45,9 +45,11 @@ export class DocumentService implements IDocumentService {
     if (!userId) {
       return [];
     }
-    
+
     const userDocuments = await Promise.all(
-      (await this.documentRepository.getUserDocuments(userId)).map(async (doc) => {
+      (
+        await this.documentRepository.getUserDocuments(userId)
+      ).map(async (doc) => {
         const users = await this.documentRepository.getDocumentUsers(doc.id);
         return {
           id: doc.id,
@@ -56,7 +58,7 @@ export class DocumentService implements IDocumentService {
         };
       })
     );
-    
+
     return userDocuments;
   }
 
@@ -114,7 +116,7 @@ export class DocumentService implements IDocumentService {
 
   public async updateDocumentContent(
     documentId: string,
-    content: string,
+    content: any,
     delta: Delta,
     socketId: string,
     userName: string,
@@ -147,8 +149,15 @@ export class DocumentService implements IDocumentService {
       );
     }
 
-    // Update the document content
-    await this.documentRepository.updateDocument(documentId, content, deltas);
+    // Call the repository method with updated parameter order
+    await this.documentRepository.updateDocumentContent(
+      documentId,
+      content,  // Pass content directly - repository will handle the JSONB conversion
+      delta,
+      userId,
+      userName,
+      socketId
+    );
   }
 
   public async addUserToDocument(

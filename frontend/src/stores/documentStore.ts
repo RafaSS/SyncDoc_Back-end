@@ -1,62 +1,207 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { io, Socket } from "socket.io-client";
-import { useAuthStore } from "./authStore";
 import { v4 as uuid } from "uuid";
-import type { Document, Delta, CursorPosition } from "../types";
-import { QuillEditor } from "@vueup/vue-quill";
+import { useSocketStore } from "./socketStore";
+import { AuthService } from "../services/authService";
+import type { Document } from "../types";
 import QuillCursors from "quill-cursors";
 
 export const useDocumentStore = defineStore("document", () => {
   // State
-  const socket = ref<Socket | null>(null);
   const connected = ref(false);
   const userId = ref("");
   const userName = ref("");
+  const initialized = ref(false);
   const document = ref<Document>({
     id: "",
     title: "Untitled Document",
     content: "",
     users: {},
     deltas: [],
-    created_at: "",
-    updated_at: "",
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   });
-
-  const documentHistory = ref<any[]>([]);
-  const userColors = ref<Record<string, string>>({});
-  const remoteCursors = ref<Record<string, any>>({});
   const quillInstance = ref<any>(null);
+  const remoteCursors = ref<Record<string, any>>({});
+  const activeUsers = ref<Record<string, string>>({});
+  const userColors = ref<Record<string, string>>({});
+  const updateReceived = ref(false);
+  const socketStore = useSocketStore();
 
-  const authStore = useAuthStore();
-
-  // Initialize socket once
-  function initializeSocket(url: string) {
-    if (socket.value) {
-      console.log("Socket already initialized");
+  /**
+   * Initialize the document store
+   * This should be called before any other methods
+   */
+  async function initialize() {
+    if (initialized.value) {
+      console.log("Document store already initialized");
       return;
     }
 
-    console.log("Initializing socket connection to", url);
-    socket.value = io(url, {
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-    });
+    console.log("Initializing document store...");
 
-    connected.value = true;
+    // Initialize the socket store if not already done
+    if (!socketStore.initialized) {
+      socketStore.initialize();
+    }
 
-    // Initialize the user ID from auth if available, otherwise generate one
-    initializeUserId();
+    // Initialize the user ID from auth if available
+    await initializeUserId();
 
-    // Set up socket event handlers
+    initialized.value = true;
+    console.log("Document store initialized successfully");
+  }
+
+  /**
+   * Initialize socket connection
+   */
+  function initializeSocket(url: string) {
+    if (!initialized.value) {
+      console.warn(
+        "Document store used before initialization! Initializing now..."
+      );
+      initialize();
+    }
+
+    // Connect to socket server using socketStore
+    socketStore.connect(url);
+
+    // Register socket event handlers
     setupSocketHandlers();
   }
 
+  /**
+   * Set up all socket event handlers
+   */
+  function setupSocketHandlers() {
+    // Connection events
+    socketStore.on("connect", (isConnected) => {
+      connected.value = isConnected;
+      console.log("Socket connection status:", isConnected);
+    });
+
+    socketStore.on("disconnect", () => {
+      connected.value = false;
+    });
+
+    // Document content
+    socketStore.on("document-content", (content: string) => {
+      if (!content) {
+        console.log("Received empty document content");
+        quillInstance.value?.getQuill()?.setText("");
+        quillInstance.value?.getQuill()?.enable();
+        return;
+      }
+      document.value.content = content; // Store original content
+
+      // Update Quill if it exists
+      if (quillInstance.value) {
+        console.log("Updating Quill with document content");
+        try {
+          const contentObj =
+            typeof content === "string" ? JSON.parse(content) : content;
+          quillInstance.value.getQuill().setContents(contentObj);
+          quillInstance.value.getQuill()?.enable();
+        } catch (error) {
+          console.error("Error parsing document content:", error);
+          quillInstance.value
+            .getQuill()
+            .setText("Error loading document content");
+        }
+      }
+    });
+
+    // Document title
+    socketStore.on("document-title", (title: string) => {
+      document.value.title = title;
+    });
+
+    // User list
+    socketStore.on("user-list", (users: Record<string, string>) => {
+      // Handle empty or missing user list
+      if (!users) {
+        console.log("Received empty user list from server");
+        document.value.users = {};
+        return;
+      }
+
+      // Process the user list
+      console.log("Received user list from server:", users);
+      document.value.users = users;
+
+      // Track active users for cursor colors
+      activeUsers.value = { ...users };
+
+      // Update UI with user colors
+      updateUserColors(Object.keys(users));
+
+      // Announce in console when visitors join (users without auth)
+      Object.entries(users).forEach(([id, name]) => {
+        if (!id.includes("-")) {
+          // UUID format check
+          console.log(`Visitor ${name} is viewing the document`);
+        }
+      });
+    });
+
+    // Document history
+    socketStore.on("document-history", (history: any[]) => {
+      console.log("Received document history:", history);
+      document.value.deltas = history;
+    });
+
+    // Text changes from other users
+    socketStore.on("text-change", (delta: any, socketId: string) => {
+      if (socketId === userId.value) return; // Ignore own changes
+
+      console.log("Received text change from:", socketId);
+      updateReceived.value = true;
+
+      if (quillInstance.value) {
+        try {
+          quillInstance.value.getQuill().updateContents(delta);
+        } catch (error) {
+          console.error("Error applying remote text change:", error);
+        }
+      }
+
+      updateReceived.value = false;
+    });
+
+    // Cursor updates from other users
+    socketStore.on("cursor-change", (userId: string, cursorData: any) => {
+      if (!quillInstance.value) return;
+
+      console.log("Cursor change from:", userId);
+      updateRemoteCursor(userId, cursorData);
+    });
+
+    // User joined notification
+    socketStore.on("user-joined", (socketId: string, userName: string) => {
+      console.log(`User ${userName} joined with socket ID ${socketId}`);
+    });
+
+    // User left notification
+    socketStore.on("user-left", (socketId: string) => {
+      console.log(`User with socket ID ${socketId} left`);
+      if (remoteCursors.value[socketId]) {
+        delete remoteCursors.value[socketId];
+      }
+    });
+
+    // Authentication status
+    socketStore.on(
+      "auth-status",
+      (result: { authenticated: boolean; userId: string }) => {
+        if (result.authenticated && result.userId) {
+          userId.value = result.userId;
+        }
+      }
+    );
+  }
+
   // Store the Quill instance for later use
-  function setQuillInstance(
-    quillComponentOrInstance: InstanceType<typeof QuillEditor>,
-    documentId: string
-  ) {
+  function setQuillInstance(quillComponentOrInstance: any, documentId: string) {
     quillInstance.value = quillComponentOrInstance;
     document.value.id = documentId;
 
@@ -75,222 +220,128 @@ export const useDocumentStore = defineStore("document", () => {
     console.log("Joined document:", document.value.id);
   }
 
-  // Socket event handlers
-  function setupSocketHandlers() {
-    if (!socket.value) return;
-
-    // Rejoin document if we were previously connected
-    if (document.value.id) {
-      joinDocument(document.value.id);
-    }
-
-    socket.value.on("load-document", (content: string, deltas: any[]) => {
-      documentHistory.value = deltas;
-      console.log("Store received document content:", content);
-      // Validate content
-      if (!content) {
-        console.log("Invalid document content received");
-        quillInstance.value?.getQuill()?.setText("");
-        quillInstance.value?.getQuill()?.enable();
-        return;
-      }
-      document.value.content = content; // Store original content
-
-      // Update Quill if it exists
-      if (quillInstance.value) {
-        console.log("Updating Quill with document content", content);
-        quillInstance.value.getQuill().setContents(JSON.parse(content));
-        quillInstance.value.getQuill()?.enable();
-      }
-    });
-
-    socket.value.on("document-title", (title: string) => {
-      document.value.title = title;
-    });
-
-    socket.value.on("user-list", (users: Record<string, string>) => {
-      document.value.users = users;
-      updateUserColors(Object.keys(users));
-    });
-
-    socket.value.on("document-history", (history: any[]) => {
-      documentHistory.value = history;
-    });
-
-    socket.value.on(
-      "text-change",
-      async (
-        docId: string,
-        delta: Delta,
-        source: string,
-        userIdClient: string,
-        content: string
-      ) => {
-        console.log(
-          "Text change received:😁😁😁",
-          docId,
-          delta,
-          source,
-          userIdClient,
-          content
-        );
-        console.log("Quill instance:", userIdClient, userId.value);
-        if (quillInstance.value && userIdClient !== userId.value) {
-          console.log("Updating Quill content:", delta.ops);
-          await quillInstance.value.getQuill().updateContents(delta.ops);
-        }
-      }
-    );
-
-    socket.value.on("title-change", (title: string) => {
-      document.value.title = title;
-    });
-
-    socket.value.on("cursor-move", (userId: string, cursorPosition: any) => {
-      updateRemoteCursor(userId, cursorPosition);
-    });
-
-    socket.value.on("user-joined", (socketId: string, userName: string) => {
-      // Show notification or update UI when a user joins
-      console.log(`${userName} joined the document`);
-      updateUserColors([socketId]);
-    });
-
-    socket.value.on("user-left", (socketId: string, userName: string) => {
-      // Remove user cursor and update UI when a user leaves
-      if (remoteCursors.value[socketId]) {
-        delete remoteCursors.value[socketId];
-      }
-      console.log(`${userName} left the document`);
-    });
-
-    // Authentication handler
-    socket.value.on(
-      "auth-result",
-      (result: { authenticated: boolean; userId: string }) => {
-        if (result.authenticated && result.userId) {
-          userId.value = result.userId;
-        }
-      }
-    );
-  }
-
-  // Actions
+  // Join a document
   function joinDocument(documentId: string) {
-    if (!socket.value) {
-      console.error("Socket is not initialized");
+    if (!socketStore.connected) {
+      console.error("Socket is not connected");
       return;
     }
     console.log("Joining document:", documentId, userId.value);
     document.value.id = documentId;
-    socket.value.emit(
-      "join-document",
-      documentId,
-      userName.value,
-      userId.value
-    );
+    socketStore.joinDocument(documentId, userName.value, userId.value);
   }
 
+  // Create a new document
   async function createNewDocument() {
-    if (!socket.value) {
-      console.error("Socket is not initialized");
+    if (!socketStore.connected) {
+      console.error("Socket is not connected");
       return;
     }
 
-    return new Promise((resolve, reject) => {
-      socket.value?.emit(
-        "create-document",
-        userId.value,
-        (response: string) => {
-          if (response.startsWith("Error:")) {
-            console.error("Error creating document:", response);
-            reject(new Error(response));
-          } else {
-            resolve(response);
-          }
-        }
-      );
-    });
+    try {
+      const newDocumentId = await socketStore.createDocument(userId.value);
+      console.log("Created new document with ID:", newDocumentId);
+      return newDocumentId;
+    } catch (error) {
+      console.error("Error creating document:", error);
+      throw error;
+    }
   }
 
-  async function sendTextChange(delta: Delta, source: string, content: string) {
-    if (!socket.value) {
-      console.error("Socket is not initialized");
+  // Send text changes to the server
+  function sendTextChange(delta: any, source: string, content: string) {
+    if (source !== "user" || updateReceived.value) return;
+
+    if (!socketStore.connected) {
+      console.error("Socket is not connected");
       return;
     }
 
-    socket.value.emit(
-      "text-change",
-      document.value.id,
-      delta,
-      source,
-      userId.value,
-      content
-    );
+    socketStore.sendTextChange(delta, source, content);
   }
 
+  // Update document title
   function updateTitle(title: string) {
-    if (!socket.value) {
-      console.error("Socket is not initialized");
+    if (!socketStore.connected) {
+      console.error("Socket is not connected");
       return;
     }
 
-    socket.value.emit("title-change", document.value.id, title);
+    document.value.title = title;
+    socketStore.updateTitle(title);
   }
 
-  function moveCursor(position: CursorPosition) {
-    if (!socket.value) {
-      console.error("Socket is not initialized");
+  // Send cursor position to server
+  function moveCursor(position: any) {
+    if (!socketStore.connected) {
+      console.error("Socket is not connected");
       return;
     }
 
-    socket.value.emit("cursor-move", document.value.id, position);
+    socketStore.sendCursorUpdate(position);
   }
 
+  // Leave the current document
   function leaveDocument() {
-    if (!socket.value) {
-      console.error("Socket is not initialized");
+    if (!socketStore.connected) {
+      console.error("Socket is not connected");
       return;
     }
 
-    socket.value.emit("leave-document", document.value.id);
+    socketStore.leaveDocument();
+    resetDocument();
   }
 
+  // Get document history
   function getDocumentHistory() {
-    return documentHistory.value;
+    if (!socketStore.connected) {
+      console.error("Socket is not connected");
+      return [{}];
+    }
+
+    return socketStore.getDocumentHistory();
   }
 
   // Helper functions
   function resetDocument() {
-    document.value.id = "";
-    document.value.title = "Untitled Document";
-    document.value.content = "";
-    document.value.users = {};
-    document.value.deltas = [];
-    document.value.created_at = "";
-    document.value.updated_at = "";
-
-    // Clear remote cursors
+    document.value = {
+      id: "",
+      title: "Untitled Document",
+      content: "",
+      users: {},
+      deltas: [],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    activeUsers.value = {};
     remoteCursors.value = {};
   }
 
-  // Initialize userId from auth store if available, otherwise generate a temporary ID
+  // Initialize userId from auth service if available
   async function initializeUserId() {
-    if (authStore.isLoggedIn && authStore.user?.id) {
-      userId.value = authStore.user.id;
-      userName.value = authStore.user.email?.split("@")[0] || "Anonymous";
-      console.log("Using authenticated user ID:", userId.value);
-    } else {
+    try {
+      const user = await AuthService.getUser();
+      if (user) {
+        userId.value = user.id;
+        userName.value = user.email?.split("@")[0] || "Anonymous";
+        console.log("Using authenticated user ID:", userId.value);
+      } else {
+        userId.value = generateTemporaryUserId();
+        userName.value = localStorage.getItem("userName") || "Anonymous";
+        console.log("Using temporary user ID:", userId.value);
+      }
+
+      // Store the username in localStorage for persistence
+      localStorage.setItem("userName", userName.value);
+    } catch (error) {
+      console.error("Error getting user data:", error);
       userId.value = generateTemporaryUserId();
       userName.value = localStorage.getItem("userName") || "Anonymous";
-      console.log("Using temporary user ID:", userId.value);
+      localStorage.setItem("userName", userName.value);
     }
-
-    // Store the username in localStorage for persistence
-    localStorage.setItem("userName", userName.value);
   }
 
-  // Only used as a fallback when auth is not available
+  // Generate a temporary user ID for non-authenticated users
   function generateTemporaryUserId(): string {
     return `${uuid()}`;
   }
@@ -309,32 +360,32 @@ export const useDocumentStore = defineStore("document", () => {
       "#FFEEAD",
     ];
 
-    userIds.forEach((userId, index) => {
-      userColors.value[userId] = colors[index % colors.length];
+    userIds.forEach((id, index) => {
+      userColors.value[id] = colors[index % colors.length];
     });
   }
 
   function updateRemoteCursor(remoteUserId: string, cursorPosition: any) {
-    if (!quillInstance.value) return;
-
-    const quill = quillInstance.value.getQuill();
-    if (!quill) return;
-
-    const cursor = quill.getModule("cursors").getCursor(remoteUserId);
-    if (!cursor) return;
-
-    cursor.update(cursorPosition);
+    remoteCursors.value[remoteUserId] = cursorPosition;
   }
 
+  function disconnect() {
+    socketStore.disconnect();
+    connected.value = false;
+  }
+
+  // Expose state and methods
   return {
-    socket,
     connected,
-    userId,
     document,
-    documentHistory,
+    userId,
+    userName,
     userColors,
     remoteCursors,
     quillInstance,
+    activeUsers,
+    initialized,
+    initialize,
     initializeSocket,
     setQuillInstance,
     joinDocument,
@@ -344,6 +395,8 @@ export const useDocumentStore = defineStore("document", () => {
     moveCursor,
     leaveDocument,
     getDocumentHistory,
-    resetDocument,
+    disconnect,
+    updateUserColors,
+    updateRemoteCursor,
   };
 });

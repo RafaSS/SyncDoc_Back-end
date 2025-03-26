@@ -61,20 +61,20 @@ export const AuthService = {
   async getSession(): Promise<AuthSession | null> {
     try {
       const { data, error } = await supabase.auth.getSession();
-      
-      console.log("Session data:", data);
-      
+
+      console.trace("Session data:", data);
+
       if (error) {
         console.error("Session error:", error);
         return null;
       }
-      
+
       // If session exists, ensure cookie is set with access token
       if (data.session?.access_token) {
         this.setAuthCookie(data.session.access_token);
         return data.session as AuthSession;
       }
-      
+
       return null;
     } catch (err) {
       console.error("Unexpected error getting session:", err);
@@ -88,21 +88,19 @@ export const AuthService = {
   async getUser(): Promise<AuthUser | null> {
     try {
       const { data, error } = await supabase.auth.getUser();
-      
-      console.log("User data:", data);
-      
+
       if (error) {
-        console.error("User error:", error);
+        console.error("User error:", error.message);
         return null;
       }
-      
+
       // If user exists, ensure cookie is set with access token
       const session = await this.getSession();
       if (session?.access_token) {
         this.setAuthCookie(session.access_token);
         return data.user as AuthUser;
       }
-      
+
       return data.user as AuthUser;
     } catch (err) {
       console.error("Unexpected error getting user:", err);
