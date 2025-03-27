@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { useDocumentStore } from "../stores/documentStore";
 
 const documentStore = useDocumentStore();
 const isDropdownOpen = ref(false);
 const users = ref<Record<string, string>>({});
 
+// Initialize users from document store on mount
+onMounted(() => {
+  users.value = { ...documentStore.document.users };
+  console.log("UserList mounted with users:", users.value);
+});
+
 // Watch for user list changes
 watch(
   () => documentStore.document.users,
   (newUsers) => {
-    users.value = newUsers;
+    if (!newUsers) {
+      users.value = {};
+      return;
+    }
+    users.value = { ...newUsers };
+    console.log("User list updated:", users.value);
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
 const userCount = computed(() => {
@@ -34,7 +45,13 @@ function closeDropdown(event: MouseEvent) {
 }
 
 // Close dropdown when clicking outside
-document.addEventListener("click", closeDropdown);
+const handleClickOutside = (event: MouseEvent) => closeDropdown(event);
+document.addEventListener("click", handleClickOutside);
+
+// Clean up event listener on unmount
+onBeforeUnmount(() => {
+  document.removeEventListener("click", handleClickOutside);
+});
 </script>
 
 <template>
@@ -45,18 +62,19 @@ document.addEventListener("click", closeDropdown);
 
     <div class="user-list-dropdown" :class="{ active: isDropdownOpen }">
       <div class="user-list-content">
-        <ul>
+        <ul v-if="userCount > 0">
           <li
             v-for="(userName, userId) in users"
             :key="userId"
             :style="{ color: documentStore.userColors[userId] || '#000' }"
+            class="user-list-item"
           >
-            {{ userName }}
-            <span v-if="userId === documentStore.userId">(You)</span>
+            <span class="user-name">{{ userName }}</span>
+            <span v-if="userId === documentStore.userId" class="current-user">(You)</span>
           </li>
         </ul>
 
-        <div v-if="userCount === 0" class="no-users">
+        <div v-else class="no-users">
           No active collaborators
         </div>
       </div>
@@ -103,31 +121,40 @@ document.addEventListener("click", closeDropdown);
 }
 
 .user-list-content {
-  padding: 0.5rem;
-  max-height: 300px;
-  overflow-y: auto;
+  padding: 1rem;
 }
 
-ul {
-  list-style: none;
-  padding: 0;
+.user-list-content ul {
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-li {
+.user-list-item {
   padding: 0.5rem 0;
   border-bottom: 1px solid #eee;
-  cursor: default;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-li:last-child {
+.user-list-item:last-child {
   border-bottom: none;
 }
 
-.no-users {
+.user-name {
+  font-weight: 500;
+}
+
+.current-user {
+  font-size: 0.8rem;
   color: #666;
+  font-style: italic;
+}
+
+.no-users {
   text-align: center;
-  padding: 1rem;
-  font-size: 0.9rem;
+  color: #666;
+  padding: 1rem 0;
 }
 </style>

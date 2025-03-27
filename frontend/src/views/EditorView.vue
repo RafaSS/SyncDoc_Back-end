@@ -80,8 +80,8 @@ onMounted(async () => {
     documentStore.updateDocumentContent(content);
   });
 
-  // Document title
-  socketService.on("document-title", (title: string) => {
+  // Document title - update event name to match backend
+  socketService.on("title-change", (title: string) => {
     documentStore.updateDocumentTitle(title);
   });
 

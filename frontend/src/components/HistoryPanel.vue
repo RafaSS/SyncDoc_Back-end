@@ -20,17 +20,17 @@ function formatTimestamp(timestamp: number): string {
   return date.toLocaleString();
 }
 
-function operationDescription(delta: DeltaChange): string {
-  if (!delta || !delta.delta || !delta.delta.ops) {
-    console.log("Invalid delta", delta.delta.ops);
+function operationDescription(change: DeltaChange): string {
+  if (!change || !change.delta || !change.delta.ops) {
+    console.log("Invalid delta:", change);
     return "Unknown change";
   }
 
   let insertCount = 0;
   let deleteCount = 0;
   let formatCount = 0;
-  console.log("😍😍", delta.delta.ops);
-  delta.delta.ops.forEach((op: any) => {
+
+  change.delta.ops.forEach((op: any) => {
     if (op.insert) insertCount++;
     if (op.delete) deleteCount++;
     if (op.retain && op.attributes) formatCount++;
@@ -52,7 +52,7 @@ function close() {
 }
 
 onMounted(() => {
-  console.log("History panel mounted");
+  console.log("History panel mounted with history:", props.history);
 });
 </script>
 
@@ -64,7 +64,7 @@ onMounted(() => {
     </div>
 
     <div class="history-content">
-      <div v-if="sortedHistory.length === 0" class="no-history">
+      <div v-if="!props.history || props.history.length === 0" class="no-history">
         <p>No history available for this document.</p>
       </div>
 
