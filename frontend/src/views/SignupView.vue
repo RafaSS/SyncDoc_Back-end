@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 
@@ -10,10 +10,12 @@ const loading = ref(false);
 const router = useRouter();
 const authStore = useAuthStore();
 // Initialize auth state if not already done
-if (!authStore.user.value) {
-  console.log("Initializing auth store in SignupView.vue");
-  await authStore.initialize();
-}
+onMounted(async () => {
+  if (!authStore.initialized) {
+    console.error("Initializing auth store in SignupView.vue");
+    await authStore.initialize();
+  }
+});
 
 async function handleSignup() {
   loading.value = true;

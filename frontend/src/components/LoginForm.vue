@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useAuthStore } from "../stores/authStore";
 import { useRouter } from "vue-router";
 
 const authStore = useAuthStore();
-
-// Initialize auth state if not already done
-if (!authStore.initialized) {
-  console.error("Initializing auth store in LoginForm.vue");
-  await authStore.initialize();
-}
 const router = useRouter();
 
 const email = ref("");
 const password = ref("");
 const errorMessage = ref("");
+
+onMounted(async () => {
+  if (!authStore.initialized) {
+    console.error("Initializing auth store in LoginForm.vue");
+    await authStore.initialize();
+  }
+});
 
 async function handleLogin() {
   try {

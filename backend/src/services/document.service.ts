@@ -152,7 +152,7 @@ export class DocumentService implements IDocumentService {
     // Call the repository method with updated parameter order
     await this.documentRepository.updateDocumentContent(
       documentId,
-      content,  // Pass content directly - repository will handle the JSONB conversion
+      content, // Pass content directly - repository will handle the JSONB conversion
       delta,
       userId,
       userName,
@@ -246,7 +246,7 @@ export class DocumentService implements IDocumentService {
     // Transform the array of users into the expected format
     return users.reduce((acc, userDoc) => {
       console.log("User document:", userDoc);
-      acc[userDoc.user_id] = userDoc.user.name;
+      acc[userDoc.user_id] = userDoc.name;
       return acc;
     }, {} as Record<string, string>);
   }

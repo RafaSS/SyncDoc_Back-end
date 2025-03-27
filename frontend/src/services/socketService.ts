@@ -21,6 +21,7 @@ export class SocketService {
     string,
     Array<(...args: any[]) => void>
   > = {};
+  // Socket event constants that match backend events
   private readonly SOCKET_EVENTS = {
     CONNECT: "connect",
     DISCONNECT: "disconnect",
@@ -28,12 +29,13 @@ export class SocketService {
     RECONNECT_ERROR: "reconnect_error",
     AUTH_STATUS: "auth-status",
     DOCUMENT_CONTENT: "document-content",
-    DOCUMENT_TITLE: "document-title",
+    DOCUMENT_TITLE: "title-change", // Changed to match backend
+    LOAD_DOCUMENT: "load-document", // Added to match backend
     USER_LIST: "user-list",
     USER_JOINED: "user-joined",
     USER_LEFT: "user-left",
     TEXT_CHANGE: "text-change",
-    CURSOR_CHANGE: "cursor-change",
+    CURSOR_CHANGE: "cursor-move", // Changed to match backend
     DOCUMENT_HISTORY: "document-history",
     ERROR: "error",
   };
@@ -43,10 +45,10 @@ export class SocketService {
    * @param url Socket server URL
    * @returns Socket instance
    */
-  connect(url: string): Socket {
+  async connect(url: string): Promise<Socket> {
     if (this.socket) {
       console.log("Socket already connected");
-      return this.socket;
+      return Promise.resolve(this.socket);
     }
 
     console.log("Connecting to socket server:", url);
@@ -55,7 +57,8 @@ export class SocketService {
     const getSessionToken = async () => {
       try {
         const session = await AuthService.getSession();
-        return session?.access_token;
+        console.info("Session token:", session);
+        return session?.user?.id;
       } catch (error) {
         console.error("Error getting session token:", error);
         return null;
@@ -70,7 +73,7 @@ export class SocketService {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       auth: {
-        token: getSessionToken() || undefined,
+        token: (await getSessionToken()) || undefined,
       },
     });
 
@@ -111,8 +114,17 @@ export class SocketService {
     });
 
     // Document-related events
+    // Listen for both document-content and load-document events
     this.socket.on(this.SOCKET_EVENTS.DOCUMENT_CONTENT, (content: string) => {
       this.triggerEventHandlers(this.SOCKET_EVENTS.DOCUMENT_CONTENT, content);
+    });
+
+    // Handle load-document event from backend
+    this.socket.on(this.SOCKET_EVENTS.LOAD_DOCUMENT, (content: string, deltas: any[]) => {
+      this.triggerEventHandlers(this.SOCKET_EVENTS.DOCUMENT_CONTENT, content);
+      if (deltas) {
+        this.triggerEventHandlers(this.SOCKET_EVENTS.DOCUMENT_HISTORY, deltas);
+      }
     });
 
     this.socket.on(this.SOCKET_EVENTS.DOCUMENT_TITLE, (title: string) => {
@@ -142,8 +154,8 @@ export class SocketService {
     });
 
     this.socket.on(
-      this.SOCKET_EVENTS.TEXT_CHANGE,
-      (delta: any, userId: string) => {
+      this.SOCKET_EVENTS.TEXT_CHANGE, 
+      (documentId: string, delta: any, source: string, userId: string) => {
         this.triggerEventHandlers(
           this.SOCKET_EVENTS.TEXT_CHANGE,
           delta,
@@ -216,7 +228,7 @@ export class SocketService {
       console.error("Socket not connected, cannot join document");
       return;
     }
-    console.log(`Joining document ${documentId} as ${userName} (${userId})`);
+    console.error(`Joining document ${documentId} as ${userName} (${userId})`);
     this.socket.emit("join-document", documentId, userName, userId);
   }
 
@@ -243,12 +255,27 @@ export class SocketService {
   /**
    * Send a text change to the server
    */
-  sendTextChange(delta: Delta, source: string, content: string): void {
+  sendTextChange(
+    documentId: string,
+    delta: Delta,
+    source: string,
+    userId: string,
+    content: Delta
+  ): void {
     if (!this.socket) {
       console.error("Socket not connected, cannot send text change");
       return;
     }
-    this.socket.emit("text-change", delta, source, content);
+    console.warn(
+      "Sending text change to server",
+      documentId,
+      delta,
+      source,
+      userId,
+      content
+    );
+    // Ensure parameters match backend's expected order
+    this.socket.emit("text-change", documentId, delta, source, userId, content);
   }
 
   /**
@@ -259,7 +286,16 @@ export class SocketService {
       console.error("Socket not connected, cannot update title");
       return;
     }
-    this.socket.emit("update-title", title);
+    
+    // Get current document ID from active document
+    const documentId = this.getCurrentDocumentId();
+    if (!documentId) {
+      console.error("No active document, cannot update title");
+      return;
+    }
+    
+    // Updated to match backend's expected parameters
+    this.socket.emit("title-change", documentId, title);
   }
 
   /**
@@ -270,7 +306,33 @@ export class SocketService {
       console.error("Socket not connected, cannot send cursor update");
       return;
     }
-    this.socket.emit("cursor-change", position);
+    
+    // Get current document ID and user ID
+    const documentId = this.getCurrentDocumentId();
+    const userId = position.userId;
+    
+    if (!documentId) {
+      console.error("No active document, cannot send cursor update");
+      return;
+    }
+    
+    // Updated to match backend's expected event and parameters
+    this.socket.emit("cursor-move", documentId, position, userId);
+  }
+
+  /**
+   * Helper function to get the current document ID
+   */
+  private getCurrentDocumentId(): string | null {
+    // Try to get the document ID from the URL
+    const path = window.location.pathname;
+    const matches = path.match(/\/documents\/([a-zA-Z0-9-]+)/);
+    if (matches && matches[1]) {
+      return matches[1];
+    }
+    
+    // If not found in URL, return null
+    return null;
   }
 
   /**

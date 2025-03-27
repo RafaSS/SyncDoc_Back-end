@@ -198,7 +198,7 @@ export class DocumentRepository {
         // Ensure content is stored as JSONB, not as a string
         // If content is already an object, use it directly
         // If it's a string that looks like JSON, parse it first
-        if (typeof content === 'string') {
+        if (typeof content === "string") {
           try {
             // Check if it's a JSON string and parse it
             updateData.content = JSON.parse(content);
@@ -211,6 +211,7 @@ export class DocumentRepository {
           updateData.content = content;
         }
       }
+      console.log("updateData", content);
 
       // Only update deltas if provided
       if (deltas.length > 0) {

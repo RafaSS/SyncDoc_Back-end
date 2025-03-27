@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import type { DeltaChange } from "../types";
 import type { Delta } from "../types";
 
@@ -20,14 +20,17 @@ function formatTimestamp(timestamp: number): string {
   return date.toLocaleString();
 }
 
-function operationDescription(delta: Delta): string {
-  if (!delta || !delta.ops) return "Unknown change";
+function operationDescription(delta: DeltaChange): string {
+  if (!delta || !delta.delta || !delta.delta.ops) {
+    console.log("Invalid delta", delta.delta.ops);
+    return "Unknown change";
+  }
 
   let insertCount = 0;
   let deleteCount = 0;
   let formatCount = 0;
-
-  delta.ops.forEach((op: any) => {
+  console.log("😍😍", delta.delta.ops);
+  delta.delta.ops.forEach((op: any) => {
     if (op.insert) insertCount++;
     if (op.delete) deleteCount++;
     if (op.retain && op.attributes) formatCount++;
@@ -47,6 +50,10 @@ function operationDescription(delta: Delta): string {
 function close() {
   emit("close");
 }
+
+onMounted(() => {
+  console.log("History panel mounted");
+});
 </script>
 
 <template>
@@ -74,7 +81,7 @@ function close() {
             }}</span>
           </div>
           <div class="history-operation">
-            {{ operationDescription(change.delta) }}
+            {{ operationDescription(change) }}
           </div>
         </div>
       </div>

@@ -1,67 +1,61 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useDocumentStore } from '../stores/documentStore'
+import { ref, computed, watch } from "vue";
+import { useDocumentStore } from "../stores/documentStore";
 
-const documentStore = useDocumentStore()
-const isDropdownOpen = ref(false)
-const users = ref<Record<string, string>>({})
+const documentStore = useDocumentStore();
+const isDropdownOpen = ref(false);
+const users = ref<Record<string, string>>({});
 
 // Watch for user list changes
 watch(
   () => documentStore.document.users,
   (newUsers) => {
-    users.value = newUsers
+    users.value = newUsers;
   },
   { deep: true }
-)
+);
 
 const userCount = computed(() => {
-  return Object.keys(users.value).length
-})
+  return Object.keys(users.value).length;
+});
 
 function toggleDropdown() {
-  isDropdownOpen.value = !isDropdownOpen.value
+  isDropdownOpen.value = !isDropdownOpen.value;
 }
 
 function closeDropdown(event: MouseEvent) {
-  const target = event.target as HTMLElement
-  const dropdown = document.querySelector('.user-list-dropdown') as HTMLElement
-  const button = document.querySelector('#user-list-button') as HTMLElement
-  
+  const target = event.target as HTMLElement;
+  const dropdown = document.querySelector(".user-list-dropdown") as HTMLElement;
+  const button = document.querySelector("#user-list-button") as HTMLElement;
+
   if (!dropdown?.contains(target) && !button?.contains(target)) {
-    isDropdownOpen.value = false
+    isDropdownOpen.value = false;
   }
 }
 
 // Close dropdown when clicking outside
-document.addEventListener('click', closeDropdown)
+document.addEventListener("click", closeDropdown);
 </script>
 
 <template>
   <div class="user-list-container">
-    <button 
-      id="user-list-button" 
-      @click="toggleDropdown"
-    >
+    <button id="user-list-button" @click="toggleDropdown">
       Collaborators ({{ userCount }})
     </button>
-    
-    <div 
-      class="user-list-dropdown" 
-      :class="{ 'active': isDropdownOpen }"
-    >
+
+    <div class="user-list-dropdown" :class="{ active: isDropdownOpen }">
       <div class="user-list-content">
         <ul>
-          <li 
-            v-for="(userName, userId) in users" 
-            :key="userId" 
+          <li
+            v-for="(userName, userId) in users"
+            :key="userId"
             :style="{ color: documentStore.userColors[userId] || '#000' }"
           >
             {{ userName }}
             <span v-if="userId === documentStore.userId">(You)</span>
           </li>
         </ul>
-        
+
         <div v-if="userCount === 0" class="no-users">
           No active collaborators
         </div>
@@ -81,6 +75,7 @@ document.addEventListener('click', closeDropdown)
   border-radius: 4px;
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
+  color: #000;
   cursor: pointer;
   transition: background-color 0.2s;
 }

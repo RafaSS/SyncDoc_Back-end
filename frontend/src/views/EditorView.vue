@@ -2,7 +2,7 @@
 import { onMounted, ref, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
-import { useSocketStore } from "../stores/socketStore";
+import { socketService } from "../services/socketService";
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import UserList from "../components/UserList.vue";
@@ -13,7 +13,6 @@ import QuillCursors from "quill-cursors";
 
 const route = useRoute();
 const documentStore = useDocumentStore();
-const socketStore = useSocketStore();
 const documentId = ref(route.params.id as string);
 const editorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
 const isShowingShareModal = ref(false);
@@ -48,40 +47,86 @@ const editorOptions = {
 };
 
 onMounted(async () => {
-  // Initialize the auth and document store
+  // Initialize the document store for state management
   await documentStore.initialize();
-
-  // Initialize socket store if needed
-  if (!socketStore.initialized) {
-    socketStore.initialize();
-  }
 
   // Initialize socket connection
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
+  // Connect to socket server directly
+  await socketService.connect(SOCKET_URL);
+
   // Setup connection status monitoring
-  socketStore.on("connect", () => {
+  socketService.on("connect", () => {
     connectionStatus.value = "Connected";
     connectionColor.value = "#27ae60"; // Green for connected
+    documentStore.connected = true;
   });
 
-  socketStore.on("disconnect", () => {
+  socketService.on("disconnect", () => {
     connectionStatus.value = "Disconnected";
     connectionColor.value = "#e74c3c"; // Red for disconnected
+    documentStore.connected = false;
   });
 
-  socketStore.on("connect_error", () => {
+  socketService.on("connect_error", () => {
     connectionStatus.value = "Connection Error";
     connectionColor.value = "#e74c3c"; // Red for error
+    documentStore.connected = false;
   });
 
-  // Then initialize the document store with socket
-  documentStore.initializeSocket(SOCKET_URL);
+  // Document content
+  socketService.on("document-content", (content: string) => {
+    documentStore.updateDocumentContent(content);
+  });
+
+  // Document title
+  socketService.on("document-title", (title: string) => {
+    documentStore.updateDocumentTitle(title);
+  });
+
+  // User list
+  socketService.on("user-list", (users: Record<string, string>) => {
+    documentStore.updateUserList(users);
+  });
+
+  // Document history
+  socketService.on("document-history", (history: any[]) => {
+    documentStore.updateDocumentHistory(history);
+  });
+
+  // Text changes from other users
+  socketService.on("text-change", (delta: any, userId: string) => {
+    documentStore.handleRemoteTextChange(delta, userId);
+  });
+
+  // Cursor updates from other users
+  socketService.on("cursor-change", (userId: string, cursorData: any) => {
+    if (!editorRef.value) return;
+    documentStore.updateRemoteCursor(userId, cursorData);
+  });
+
+  // User joined notification
+  socketService.on("user-joined", (socketId: string, userName: string) => {
+    console.log(`User ${userName} joined with socket ID ${socketId}`);
+  });
+
+  // User left notification
+  socketService.on("user-left", (socketId: string) => {
+    console.log(`User with socket ID ${socketId} left`);
+    const remoteCursors = documentStore.remoteCursors;
+    if (remoteCursors[socketId]) {
+      delete remoteCursors[socketId];
+    }
+  });
 
   // Set Quill instance
   if (editorRef.value) {
     documentStore.setQuillInstance(editorRef.value, documentId.value);
   }
+
+  // Join document
+  joinDocument();
 
   // Update title from document store
   watch(
@@ -90,23 +135,62 @@ onMounted(async () => {
       documentTitle.value = newTitle;
     }
   );
+
+  // Request document history
+  getDocumentHistory();
 });
 
 onBeforeUnmount(() => {
   // Clean up and leave document
-  documentStore.leaveDocument();
-  documentStore.disconnect();
+  leaveDocument();
+  socketService.disconnect();
 });
+
+// Join a document
+function joinDocument() {
+  console.log("Joining document:", documentId.value, documentStore.userId);
+  documentStore.document.id = documentId.value;
+  socketService.joinDocument(
+    documentId.value,
+    documentStore.userName,
+    documentStore.userId
+  );
+}
+
+// Leave the current document
+function leaveDocument() {
+  socketService.leaveDocument();
+  documentStore.resetDocument();
+}
+
+// Get document history
+function getDocumentHistory() {
+  socketService
+    .getDocumentHistory()
+    .then((history) => {
+      documentStore.updateDocumentHistory(history);
+    })
+    .catch((error) => {
+      console.error("Error getting document history:", error);
+    });
+}
 
 // Text change handler
 function onEditorTextChange(delta: any, _oldContents: any, source: string) {
   if (source !== "user" || !editorRef.value) return;
 
   const quill = editorRef.value.getQuill();
-  const content = JSON.stringify(quill.getContents());
-
-  // Send delta to server through document store
-  documentStore.sendTextChange(delta, source, content);
+  const content = quill.getContents();
+  console.log("Delta:", delta);
+  console.log("Content:", content);
+  // Send delta to server through socket service directly
+  socketService.sendTextChange(
+    documentId.value,
+    delta,
+    source,
+    documentStore.userId,
+    content
+  );
 }
 
 // Selection change handler
@@ -114,7 +198,7 @@ function onEditorSelectionChange(range: any, _oldRange: any, source: string) {
   if (source !== "user" || !range || !editorRef.value) return;
 
   // Send cursor update to server
-  documentStore.moveCursor({
+  socketService.sendCursorUpdate({
     range,
     userId: documentStore.userId,
     username: documentStore.userName,
@@ -130,11 +214,16 @@ function onEditorReady(quill: any) {
     onEditorSelectionChange(range, oldRange, source);
   });
 
+  quill.on("text-change", (delta: any, oldContents: any, source: string) => {
+    console.log("Text change:", delta, oldContents, source);
+    onEditorTextChange(delta, oldContents, source);
+  });
+
   // Enable editor after initialization
   quill.enable();
 
   // Request document history
-  documentStore.getDocumentHistory();
+  getDocumentHistory();
 }
 
 // Toggle share modal
@@ -146,36 +235,15 @@ function showShareModal() {
 function toggleHistoryPanel() {
   isShowingHistoryPanel.value = !isShowingHistoryPanel.value;
   if (isShowingHistoryPanel.value) {
-    documentStore.getDocumentHistory();
+    getDocumentHistory();
   }
 }
 
 // Update document title
 function updateTitle() {
-  documentStore.updateTitle(documentTitle.value);
+  socketService.updateTitle(documentTitle.value);
+  documentStore.updateDocumentTitle(documentTitle.value);
 }
-
-// function updateRemoteCursorElement(userId: string, cursorData: any) {
-//   if (!editorRef.value?.getQuill() || !cursorData) return;
-
-//   const quill = editorRef.value.getQuill();
-//   const cursorsModule = quill.getModule("cursors");
-
-//   if (cursorsModule) {
-//     try {
-//       // Update cursor through the module
-//       cursorsModule.createCursor(
-//         userId,
-//         cursorData.name || "Anonymous",
-//         cursorData.color || "#f39c12"
-//       );
-//       cursorsModule.moveCursor(userId, cursorData.range);
-//       cursorsModule.toggleFlag(userId, true);
-//     } catch (error) {
-//       console.error("Error updating cursor:", error);
-//     }
-//   }
-// }
 </script>
 
 <template>

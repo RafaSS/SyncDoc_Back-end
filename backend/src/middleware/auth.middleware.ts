@@ -10,7 +10,7 @@ export const isAuthenticated = async (
   next: NextFunction
 ) => {
   let token;
-  console.log("Auth token from cookie:", req.cookies.auth_token);
+  // console.log("Auth token from cookie:", req.cookies.auth_token);
 
   // First check for auth_token in cookies
   if (req.cookies && req.cookies.auth_token) {
@@ -32,7 +32,7 @@ export const isAuthenticated = async (
 
   try {
     // Verify the token with Supabase
-    console.log("Verifying token with Supabase");
+    // console.log("Verifying token with Supabase");
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error) {
@@ -40,7 +40,7 @@ export const isAuthenticated = async (
 
       // Clear invalid cookie if present
       if (req.cookies && req.cookies.auth_token) {
-        console.log("Clearing invalid cookie", error);
+        // console.log("Clearing invalid cookie", error);
         res.clearCookie("auth_token");
       }
 

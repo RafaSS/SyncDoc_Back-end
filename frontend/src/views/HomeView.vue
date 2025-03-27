@@ -13,10 +13,8 @@ const documents = ref<Array<{ id: string; title: string; userCount: number }>>(
 );
 
 onMounted(async () => {
-  // Initialize the socket connection
+  // Initialize the document store for user ID only, not sockets
   await documentStore.initialize();
-  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
-  documentStore.initializeSocket(SOCKET_URL);
 
   try {
     // Fetch documents from API
@@ -31,7 +29,6 @@ onMounted(async () => {
   }
 });
 
-//pass credentials
 async function createNewDocument() {
   try {
     const response = await apiPost<{ id: string }>("/documents", {});

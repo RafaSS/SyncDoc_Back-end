@@ -65,7 +65,7 @@ export const useSocketStore = defineStore("socket", () => {
    * @param url Socket server URL
    * @returns Socket instance
    */
-  async function connect(url: string): Promise<Socket | null> {
+  async function connect(url: string): Promise<Socket | any> {
     if (socket.value) {
       console.log("Socket already connected");
       return socket.value;
@@ -235,7 +235,7 @@ export const useSocketStore = defineStore("socket", () => {
       console.error("Socket not connected, cannot join document");
       return;
     }
-    console.log(`Joining document ${documentId} as ${userName} (${userId})`);
+    console.error(`Joining document ${documentId} as ${userName} (${userId})`);
     socket.value.emit("join-document", documentId, userName, userId);
   }
 
@@ -262,12 +262,17 @@ export const useSocketStore = defineStore("socket", () => {
   /**
    * Send a text change to the server
    */
-  function sendTextChange(delta: Delta, source: string, content: string): void {
+  function sendTextChange(
+    documentId: string,
+    delta: Delta,
+    source: string,
+    content: string
+  ): void {
     if (!socket.value) {
       console.error("Socket not connected, cannot send text change");
       return;
     }
-    socket.value.emit("text-change", delta, source, content);
+    socket.value.emit("text-change", documentId, delta, source, content);
   }
 
   /**

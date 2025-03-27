@@ -16,7 +16,7 @@ const routes = [
     path: "/documents/:id",
     name: "editor",
     component: EditorView,
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: false },
   },
   {
     path: "/login",
