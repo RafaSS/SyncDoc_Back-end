@@ -2,6 +2,7 @@ import { Socket, io } from "socket.io-client";
 import { ref } from "vue";
 import type Delta from "quill";
 import { AuthService } from "./authService";
+import { getCookie } from "../utils/cookie";
 
 // Event handlers type definitions
 export type DocumentContentHandler = (content: string) => void;
@@ -53,17 +54,9 @@ export class SocketService {
 
     console.log("Connecting to socket server:", url);
 
-    // Get current session token if available
-    const getSessionToken = async () => {
-      try {
-        const session = await AuthService.getSession();
-        console.info("Session token:", session);
-        return session?.user?.id;
-      } catch (error) {
-        console.error("Error getting session token:", error);
-        return null;
-      }
-    };
+    // Get current auth token from cookie
+    const authToken = getCookie("auth_token");
+    console.info("Auth token for socket:", authToken ? "Present" : "Not present");
 
     // Initialize socket connection
     this.socket = io(url, {
@@ -73,7 +66,7 @@ export class SocketService {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       auth: {
-        token: (await getSessionToken()) || undefined,
+        token: authToken || undefined,
       },
     });
 

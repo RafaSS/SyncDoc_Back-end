@@ -123,7 +123,7 @@ export const useSocketStore = defineStore("socket", () => {
     });
 
     socket.value.on(SOCKET_EVENTS.DISCONNECT, () => {
-      console.log("Disconnected from socket server");
+      ("Disconnected from socket server");
       connected.value = false;
       triggerEventHandlers(SOCKET_EVENTS.DISCONNECT, false);
     });

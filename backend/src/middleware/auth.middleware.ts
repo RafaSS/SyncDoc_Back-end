@@ -66,7 +66,9 @@ export const isAuthenticated = async (
  * Middleware to check if user has permission for a document
  * @param permission The required permission level ('view', 'edit', 'own')
  */
-export const hasDocumentPermission = (permission: "view" | "edit" | "own") => {
+export const hasDocumentPermission = (
+  permission: "viewer" | "editor" | "owner"
+) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = (req as any).user?.id;
@@ -81,13 +83,13 @@ export const hasDocumentPermission = (permission: "view" | "edit" | "own") => {
       // Map permission to roles
       let allowedRoles: string[] = [];
       switch (permission) {
-        case "view":
+        case "viewer":
           allowedRoles = ["viewer", "editor", "owner"];
           break;
-        case "edit":
+        case "editor":
           allowedRoles = ["editor", "owner"];
           break;
-        case "own":
+        case "owner":
           allowedRoles = ["owner"];
           break;
       }

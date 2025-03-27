@@ -30,7 +30,7 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       console.log("Initializing auth store...");
       const session = await AuthService.getSession();
-      console.log("Auth store initializing with session:", session);
+      // console.log("Auth store initializing with session:", session);
 
       if (session) {
         // Set the user from session

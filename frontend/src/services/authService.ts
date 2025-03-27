@@ -62,7 +62,7 @@ export const AuthService = {
     try {
       const { data, error } = await supabase.auth.getSession();
 
-      console.trace("Session data:", data);
+      // console.trace("Session data:", data);
 
       if (error) {
         console.error("Session error:", error);

@@ -154,6 +154,8 @@ export const useDocumentStore = defineStore("document", () => {
           .getQuill()
           .setText("Error loading document content");
       }
+    } else {
+      console.log("Quill instance not found");
     }
   }
 
@@ -234,6 +236,6 @@ export const useDocumentStore = defineStore("document", () => {
     updateDocumentTitle,
     updateUserList,
     handleRemoteTextChange,
-    updateDocumentHistory
+    updateDocumentHistory,
   };
 });

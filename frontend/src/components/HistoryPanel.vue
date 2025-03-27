@@ -22,7 +22,6 @@ function formatTimestamp(timestamp: number): string {
 
 function operationDescription(change: DeltaChange): string {
   if (!change || !change.delta || !change.delta.ops) {
-    console.log("Invalid delta:", change);
     return "Unknown change";
   }
 
@@ -64,7 +63,10 @@ onMounted(() => {
     </div>
 
     <div class="history-content">
-      <div v-if="!props.history || props.history.length === 0" class="no-history">
+      <div
+        v-if="!props.history || props.history.length === 0"
+        class="no-history"
+      >
         <p>No history available for this document.</p>
       </div>
 

@@ -5,6 +5,9 @@ export interface IDocumentService {
   getAllDocuments(): Promise<
     Array<{ id: string; title: string; userCount: number }>
   >;
+  getAllDocumentsForUser(
+    id: string
+  ): Promise<Array<{ id: string; title: string; userCount: number }>>;
   getDocumentById(id: string): Promise<IDocument | null>;
   getDocumentHistory(
     id: string

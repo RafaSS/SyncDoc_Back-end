@@ -2,7 +2,9 @@
 import { onMounted, ref, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
+import { useAuthStore } from "../stores/authStore";
 import { socketService } from "../services/socketService";
+import { apiService } from "../services/apiService";
 import { QuillEditor } from "@vueup/vue-quill";
 import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import UserList from "../components/UserList.vue";
@@ -11,8 +13,17 @@ import ShareModal from "../components/ShareModal.vue";
 import HistoryPanel from "../components/HistoryPanel.vue";
 import QuillCursors from "quill-cursors";
 
+// Types
+interface DocumentResponse {
+  id: string;
+  title: string;
+  content: any;
+  userCount: number;
+}
+
 const route = useRoute();
 const documentStore = useDocumentStore();
+const authStore = useAuthStore();
 const documentId = ref(route.params.id as string);
 const editorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
 const isShowingShareModal = ref(false);
@@ -20,6 +31,9 @@ const isShowingHistoryPanel = ref(false);
 const documentTitle = ref("Untitled Document");
 const connectionStatus = ref("Connecting...");
 const connectionColor = ref("#f39c12");
+const isLoading = ref(true);
+const loadError = ref("");
+const documentData = ref<DocumentResponse | null>(null);
 
 // Editor configuration
 const editorOptions = {
@@ -50,10 +64,67 @@ onMounted(async () => {
   // Initialize the document store for state management
   await documentStore.initialize();
 
+  // First, load document via API
+  await loadDocumentFromApi();
+
+  // Then initialize socket connection for real-time updates
+  await initializeSocketConnection();
+
+  // Update title from document store
+  watch(
+    () => documentStore.document.title,
+    (newTitle) => {
+      documentTitle.value = newTitle;
+    }
+  );
+});
+
+// Load document content and metadata from API
+async function loadDocumentFromApi() {
+  isLoading.value = true;
+  loadError.value = "";
+
+  try {
+    // Fetch document data from API
+    const response = await apiService.getDocument(documentId.value);
+    documentData.value = response;
+
+    // Update document store with API response
+    documentStore.document.id = documentId.value;
+    documentStore.updateDocumentTitle(
+      documentData.value?.title || "Untitled Document"
+    );
+    documentTitle.value = documentData.value?.title || "Untitled Document";
+
+    // Fetch document history separately
+    await loadDocumentHistory();
+
+    console.log("Document loaded from API:", documentData.value);
+    isLoading.value = false;
+  } catch (error) {
+    console.error("Error loading document from API:", error);
+    loadError.value = "Failed to load document. Please try again.";
+    isLoading.value = false;
+  }
+}
+
+// Load document history from API
+async function loadDocumentHistory() {
+  try {
+    const historyData = await apiService.getDocumentHistory(documentId.value);
+    documentStore.updateDocumentHistory(historyData.deltas || []);
+    console.log("Document history loaded:", historyData);
+  } catch (error) {
+    console.error("Error loading document history:", error);
+  }
+}
+
+// Initialize socket connection for real-time updates
+async function initializeSocketConnection() {
   // Initialize socket connection
   const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
 
-  // Connect to socket server directly
+  // Connect to socket server
   await socketService.connect(SOCKET_URL);
 
   // Setup connection status monitoring
@@ -61,6 +132,9 @@ onMounted(async () => {
     connectionStatus.value = "Connected";
     connectionColor.value = "#27ae60"; // Green for connected
     documentStore.connected = true;
+
+    // Join the document room for real-time updates
+    joinDocument();
   });
 
   socketService.on("disconnect", () => {
@@ -75,24 +149,16 @@ onMounted(async () => {
     documentStore.connected = false;
   });
 
-  // Document content
-  socketService.on("document-content", (content: string) => {
-    documentStore.updateDocumentContent(content);
-  });
+  // Listen for real-time updates only (initial content already loaded via API)
 
-  // Document title - update event name to match backend
+  // Document title updates
   socketService.on("title-change", (title: string) => {
     documentStore.updateDocumentTitle(title);
   });
 
-  // User list
+  // User list updates
   socketService.on("user-list", (users: Record<string, string>) => {
     documentStore.updateUserList(users);
-  });
-
-  // Document history
-  socketService.on("document-history", (history: any[]) => {
-    documentStore.updateDocumentHistory(history);
   });
 
   // Text changes from other users
@@ -101,7 +167,7 @@ onMounted(async () => {
   });
 
   // Cursor updates from other users
-  socketService.on("cursor-change", (userId: string, cursorData: any) => {
+  socketService.on("cursor-move", (userId: string, cursorData: any) => {
     if (!editorRef.value) return;
     documentStore.updateRemoteCursor(userId, cursorData);
   });
@@ -119,26 +185,7 @@ onMounted(async () => {
       delete remoteCursors[socketId];
     }
   });
-
-  // Set Quill instance
-  if (editorRef.value) {
-    documentStore.setQuillInstance(editorRef.value, documentId.value);
-  }
-
-  // Join document
-  joinDocument();
-
-  // Update title from document store
-  watch(
-    () => documentStore.document.title,
-    (newTitle) => {
-      documentTitle.value = newTitle;
-    }
-  );
-
-  // Request document history
-  getDocumentHistory();
-});
+}
 
 onBeforeUnmount(() => {
   // Clean up and leave document
@@ -149,7 +196,6 @@ onBeforeUnmount(() => {
 // Join a document
 function joinDocument() {
   console.log("Joining document:", documentId.value, documentStore.userId);
-  documentStore.document.id = documentId.value;
   socketService.joinDocument(
     documentId.value,
     documentStore.userName,
@@ -161,18 +207,6 @@ function joinDocument() {
 function leaveDocument() {
   socketService.leaveDocument();
   documentStore.resetDocument();
-}
-
-// Get document history
-function getDocumentHistory() {
-  socketService
-    .getDocumentHistory()
-    .then((history) => {
-      documentStore.updateDocumentHistory(history);
-    })
-    .catch((error) => {
-      console.error("Error getting document history:", error);
-    });
 }
 
 // Text change handler
@@ -209,6 +243,14 @@ function onEditorSelectionChange(range: any, _oldRange: any, source: string) {
 function onEditorReady(quill: any) {
   console.log("Quill editor is ready");
 
+  // Set Quill instance in document store
+  documentStore.setQuillInstance(editorRef.value, documentId.value);
+
+  // Load content into Quill now that it's ready
+  if (documentData.value && documentData.value.content) {
+    documentStore.updateDocumentContent(documentData.value.content);
+  }
+
   // Register cursor event handlers
   quill.on("selection-change", (range: any, oldRange: any, source: string) => {
     onEditorSelectionChange(range, oldRange, source);
@@ -221,9 +263,6 @@ function onEditorReady(quill: any) {
 
   // Enable editor after initialization
   quill.enable();
-
-  // Request document history
-  getDocumentHistory();
 }
 
 // Toggle share modal
@@ -235,7 +274,7 @@ function showShareModal() {
 function toggleHistoryPanel() {
   isShowingHistoryPanel.value = !isShowingHistoryPanel.value;
   if (isShowingHistoryPanel.value) {
-    getDocumentHistory();
+    loadDocumentHistory();
   }
 }
 
@@ -262,7 +301,17 @@ function updateTitle() {
     </header>
 
     <main>
-      <div class="editor-container">
+      <div v-if="isLoading" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Loading document...</p>
+      </div>
+
+      <div v-else-if="loadError" class="error-message">
+        <p>{{ loadError }}</p>
+        <button @click="loadDocumentFromApi">Retry</button>
+      </div>
+
+      <div v-else class="editor-container">
         <EditorToolbar @show-history="toggleHistoryPanel" />
         <QuillEditor
           ref="editorRef"
@@ -274,11 +323,11 @@ function updateTitle() {
         />
       </div>
 
-      <HistoryPanel
+      <!-- <HistoryPanel
         v-if="isShowingHistoryPanel"
         :history="documentStore.document.deltas"
         @close="isShowingHistoryPanel = false"
-      />
+      /> -->
     </main>
 
     <footer>
@@ -356,6 +405,49 @@ main {
   overflow-y: auto;
 }
 
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 100;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #4285f4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #e74c3c;
+}
+
+.error-message button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 footer {
   display: flex;
   justify-content: space-between;
@@ -387,5 +479,14 @@ footer {
 
 .document-actions button:hover {
   background-color: #3367d6;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
