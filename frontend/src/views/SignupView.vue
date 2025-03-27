@@ -2,13 +2,18 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const email = ref("");
 const password = ref("");
+const confirmPassword = ref("");
 const error = ref("");
 const loading = ref(false);
+const isPasswordVisible = ref(false);
 const router = useRouter();
 const authStore = useAuthStore();
+
 // Initialize auth state if not already done
 onMounted(async () => {
   if (!authStore.initialized) {
@@ -18,6 +23,11 @@ onMounted(async () => {
 });
 
 async function handleSignup() {
+  if (password.value !== confirmPassword.value) {
+    error.value = t('signup.passwordMismatch');
+    return;
+  }
+  
   loading.value = true;
   error.value = "";
 
@@ -25,45 +35,110 @@ async function handleSignup() {
     await authStore.signup(email.value, password.value);
     router.push("/");
   } catch (err: any) {
-    error.value = err.message || "Failed to create account";
+    error.value = err.message || t('signup.failed');
   } finally {
     loading.value = false;
   }
+}
+
+function togglePasswordVisibility() {
+  isPasswordVisible.value = !isPasswordVisible.value;
 }
 </script>
 
 <template>
   <div class="signup-container">
-    <div class="signup-card">
-      <h1>Create an Account</h1>
-      <form @submit.prevent="handleSignup">
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            required
-            placeholder="Enter your email"
-          />
+    <div class="signup-content">
+      <div class="signup-branding">
+        <h1>{{ $t('app.name') }}</h1>
+        <p>{{ $t('app.tagline') }}</p>
+        <div class="illustration">
+          <i class="fas fa-file-alt main-icon"></i>
+          <i class="fas fa-users secondary-icon"></i>
+          <i class="fas fa-edit secondary-icon"></i>
         </div>
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            required
-            placeholder="Create a password"
-          />
+      </div>
+      <div class="signup-card">
+        <h2>{{ $t('navbar.signup') }}</h2>
+        <p class="form-subtitle">{{ $t('signup.createAccount') }}</p>
+        
+        <form @submit.prevent="handleSignup">
+          <div v-if="error" class="error-message">
+            <i class="fas fa-exclamation-circle"></i> {{ error }}
+          </div>
+          
+          <div class="form-group">
+            <label for="email">
+              <i class="fas fa-envelope"></i> {{ $t('signup.email') }}
+            </label>
+            <div class="input-wrapper">
+              <input
+                id="email"
+                v-model="email"
+                type="email"
+                required
+                :placeholder="$t('signup.emailPlaceholder')"
+                autocomplete="email"
+              />
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="password">
+              <i class="fas fa-lock"></i> {{ $t('signup.password') }}
+            </label>
+            <div class="input-wrapper">
+              <input
+                id="password"
+                v-model="password"
+                :type="isPasswordVisible ? 'text' : 'password'"
+                required
+                :placeholder="$t('signup.passwordPlaceholder')"
+                autocomplete="new-password"
+              />
+              <button 
+                type="button" 
+                class="password-toggle" 
+                @click="togglePasswordVisibility"
+                tabindex="-1"
+              >
+                <i :class="isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="confirm-password">
+              <i class="fas fa-lock"></i> {{ $t('signup.confirmPassword') }}
+            </label>
+            <div class="input-wrapper">
+              <input
+                id="confirm-password"
+                v-model="confirmPassword"
+                :type="isPasswordVisible ? 'text' : 'password'"
+                required
+                :placeholder="$t('signup.confirmPasswordPlaceholder')"
+                autocomplete="new-password"
+              />
+            </div>
+          </div>
+          
+          <div class="terms">
+            <label class="checkbox-label">
+              <input type="checkbox" required />
+              <span>{{ $t('signup.agreeToTerms') }}</span>
+            </label>
+          </div>
+          
+          <button type="submit" class="btn-primary" :disabled="loading">
+            <i class="fas fa-user-plus"></i>
+            {{ loading ? $t('signup.creating') : $t('navbar.signup') }}
+          </button>
+        </form>
+        
+        <div class="login-link">
+          {{ $t('signup.alreadyHaveAccount') }} <router-link to="/login">{{ $t('navbar.login') }}</router-link>
         </div>
-        <div v-if="error" class="error-message">{{ error }}</div>
-        <button type="submit" class="btn-primary" :disabled="loading">
-          {{ loading ? "Creating account..." : "Sign Up" }}
-        </button>
-      </form>
-      <div class="login-link">
-        Already have an account? <router-link to="/login">Log in</router-link>
       </div>
     </div>
   </div>
@@ -71,20 +146,101 @@ async function handleSignup() {
 
 <style scoped>
 .signup-container {
+  min-height: calc(100vh - 70px);
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
-  background-color: #f5f5f5;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 2rem;
+}
+
+.signup-content {
+  display: flex;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  width: 100%;
+  max-width: 1000px;
+  min-height: 600px;
+}
+
+.signup-branding {
+  flex: 1;
+  background: linear-gradient(135deg, #4b70e2 0%, #3a5bbf 100%);
+  color: white;
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  position: relative;
+}
+
+.signup-branding h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  letter-spacing: -0.5px;
+}
+
+.signup-branding p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  max-width: 300px;
+  margin: 0 auto 2rem;
+}
+
+.illustration {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.main-icon {
+  font-size: 7rem;
+  color: rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 5px 15px rgba(0, 0, 0, 0.2));
+}
+
+.secondary-icon {
+  position: absolute;
+  font-size: 3rem;
+  color: rgba(255, 255, 255, 0.7);
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.2));
+}
+
+.secondary-icon:nth-of-type(2) {
+  top: 20px;
+  right: 20px;
+}
+
+.secondary-icon:nth-of-type(3) {
+  bottom: 20px;
+  left: 20px;
 }
 
 .signup-card {
-  background-color: white;
-  border-radius: 8px;
-  padding: 2rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 400px;
+  flex: 1;
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+}
+
+h2 {
+  font-size: 2rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.form-subtitle {
+  color: #666;
+  margin-bottom: 2rem;
 }
 
 .form-group {
@@ -95,44 +251,148 @@ label {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-input {
+label i {
+  color: #4b70e2;
+}
+
+.input-wrapper {
+  position: relative;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.85rem 1rem;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 1rem;
+  transition: all 0.3s;
+  background-color: #f9fafb;
+}
+
+input:focus {
+  border-color: #4b70e2;
+  box-shadow: 0 0 0 3px rgba(75, 112, 226, 0.2);
+  outline: none;
+  background-color: #fff;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #777;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.password-toggle:hover {
+  color: #4b70e2;
+}
+
+.terms {
+  margin-bottom: 1.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #555;
+  cursor: pointer;
 }
 
 .btn-primary {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.85rem;
   background-color: #4b70e2;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 8px rgba(75, 112, 226, 0.3);
 }
 
 .btn-primary:hover {
   background-color: #3a5bbf;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(75, 112, 226, 0.4);
 }
 
 .btn-primary:disabled {
   background-color: #a0a0a0;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .error-message {
   color: #e74c3c;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 0.85rem;
+  border-radius: 6px;
+  background-color: rgba(231, 76, 60, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .login-link {
-  margin-top: 1rem;
+  margin-top: 2rem;
   text-align: center;
+  color: #666;
+}
+
+.login-link a {
+  color: #4b70e2;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.login-link a:hover {
+  color: #3a5bbf;
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .signup-content {
+    flex-direction: column;
+  }
+  
+  .signup-branding {
+    padding: 2rem;
+  }
+  
+  .illustration {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .main-icon {
+    font-size: 5rem;
+  }
+  
+  .secondary-icon {
+    font-size: 2rem;
+  }
 }
 </style>

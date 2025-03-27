@@ -11,6 +11,7 @@ import UserList from "../components/UserList.vue";
 import EditorToolbar from "../components/EditorToolbar.vue";
 import ShareModal from "../components/ShareModal.vue";
 import QuillCursors from "quill-cursors";
+import { useI18n } from "vue-i18n";
 
 // Types
 interface DocumentResponse {
@@ -22,13 +23,14 @@ interface DocumentResponse {
 
 const route = useRoute();
 const documentStore = useDocumentStore();
+const { t } = useI18n();
 // const authStore = useAuthStore();
 const documentId = ref(route.params.id as string);
 const editorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
 const isShowingShareModal = ref(false);
 const isShowingHistoryPanel = ref(false);
-const documentTitle = ref("Untitled Document");
-const connectionStatus = ref("Connecting...");
+const documentTitle = ref(t("editor.untitledDocument"));
+const connectionStatus = ref(t("editor.connecting"));
 const connectionColor = ref("#f39c12");
 const isLoading = ref(true);
 const loadError = ref("");
@@ -55,7 +57,7 @@ const editorOptions = {
       transformOnTextChange: true,
     },
   },
-  placeholder: "Enter your text here...",
+  placeholder: t("editor.placeholder"),
   theme: "snow",
 };
 
@@ -91,9 +93,9 @@ async function loadDocumentFromApi() {
     // Update document store with API response
     documentStore.document.id = documentId.value;
     documentStore.updateDocumentTitle(
-      documentData.value?.title || "Untitled Document"
+      documentData.value?.title || t("editor.untitledDocument")
     );
-    documentTitle.value = documentData.value?.title || "Untitled Document";
+    documentTitle.value = documentData.value?.title || t("editor.untitledDocument");
 
     // Fetch document history separately
     await loadDocumentHistory();
@@ -102,7 +104,7 @@ async function loadDocumentFromApi() {
     isLoading.value = false;
   } catch (error) {
     console.error("Error loading document from API:", error);
-    loadError.value = "Failed to load document. Please try again.";
+    loadError.value = t("editor.error");
     isLoading.value = false;
   }
 }
@@ -128,7 +130,7 @@ async function initializeSocketConnection() {
 
   // Setup connection status monitoring
   socketService.on("connect", () => {
-    connectionStatus.value = "Connected";
+    connectionStatus.value = t("editor.connected");
     connectionColor.value = "#27ae60"; // Green for connected
     documentStore.connected = true;
 
@@ -137,13 +139,13 @@ async function initializeSocketConnection() {
   });
 
   socketService.on("disconnect", () => {
-    connectionStatus.value = "Disconnected";
+    connectionStatus.value = t("editor.disconnected");
     connectionColor.value = "#e74c3c"; // Red for disconnected
     documentStore.connected = false;
   });
 
   socketService.on("connect_error", () => {
-    connectionStatus.value = "Connection Error";
+    connectionStatus.value = t("editor.connectionError");
     connectionColor.value = "#e74c3c"; // Red for error
     documentStore.connected = false;
   });
@@ -204,64 +206,62 @@ function joinDocument() {
 
 // Leave the current document
 function leaveDocument() {
-  socketService.leaveDocument();
-  documentStore.resetDocument();
+  if (!documentId.value) return;
+  socketService.leaveDocument(documentId.value);
 }
 
 // Text change handler
 function onEditorTextChange(delta: any, _oldContents: any, source: string) {
-  if (source !== "user" || !editorRef.value) return;
-
-  const quill = editorRef.value.getQuill();
-  const content = quill.getContents();
-  console.log("Delta:", delta);
-  console.log("Content:", content);
-  // Send delta to server through socket service directly
-  socketService.sendTextChange(
-    documentId.value,
-    delta,
-    source,
-    documentStore.userId,
-    content
-  );
+  if (source === "user" && documentStore.connected) {
+    // Emit changes to server
+    socketService.updateText(delta);
+  } else if (source === "api") {
+    // Handle remote changes from server
+    // These are now handled via the document store and socket events
+  }
 }
 
 // Selection change handler
 function onEditorSelectionChange(range: any, _oldRange: any, source: string) {
-  if (source !== "user" || !range || !editorRef.value) return;
-
-  // Send cursor update to server
-  socketService.sendCursorUpdate({
-    range,
-    userId: documentStore.userId,
-    username: documentStore.userName,
-  });
+  if (
+    source === "user" &&
+    range &&
+    documentStore.connected &&
+    editorRef.value
+  ) {
+    // Send cursor position to server
+    socketService.updateCursor(range);
+  }
 }
 
 // After QuillEditor is ready
 function onEditorReady(quill: any) {
-  console.log("Quill editor is ready");
+  if (!documentData.value?.content) return;
 
-  // Set Quill instance in document store
-  documentStore.setQuillInstance(editorRef.value, documentId.value);
+  try {
+    // Set editor content
+    if (documentData.value.content.ops) {
+      quill.setContents(documentData.value.content.ops);
+    } else if (typeof documentData.value.content === "string") {
+      quill.setText(documentData.value.content);
+    }
 
-  // Load content into Quill now that it's ready
-  if (documentData.value && documentData.value.content) {
-    documentStore.updateDocumentContent(documentData.value.content);
+    // Initialize cursors module
+    const cursors = quill.getModule("cursors");
+    if (cursors) {
+      // Make cursors available to document store
+      documentStore.setCursorsModule(cursors);
+    }
+
+    // Apply any pending remote cursor updates
+    Object.entries(documentStore.remoteCursors).forEach(
+      ([userId, cursorData]) => {
+        documentStore.updateRemoteCursor(userId, cursorData);
+      }
+    );
+  } catch (error) {
+    console.error("Error initializing editor:", error);
   }
-
-  // Register cursor event handlers
-  quill.on("selection-change", (range: any, oldRange: any, source: string) => {
-    onEditorSelectionChange(range, oldRange, source);
-  });
-
-  quill.on("text-change", (delta: any, oldContents: any, source: string) => {
-    console.log("Text change:", delta, oldContents, source);
-    onEditorTextChange(delta, oldContents, source);
-  });
-
-  // Enable editor after initialization
-  quill.enable();
 }
 
 // Toggle share modal
@@ -273,27 +273,28 @@ function showShareModal() {
 function toggleHistoryPanel() {
   isShowingHistoryPanel.value = !isShowingHistoryPanel.value;
   if (isShowingHistoryPanel.value) {
+    // Load document history when panel is opened
     loadDocumentHistory();
   }
 }
 
 // Update document title
 function updateTitle() {
-  socketService.updateTitle(documentTitle.value);
   documentStore.updateDocumentTitle(documentTitle.value);
+  socketService.updateTitle(documentTitle.value);
 }
 </script>
 
 <template>
   <div class="app-container">
     <header>
-      <h1>SyncDoc</h1>
+      <h1>{{ $t('app.name') }}</h1>
       <div class="document-info">
         <input
           type="text"
           v-model="documentTitle"
           @change="updateTitle"
-          placeholder="Untitled Document"
+          :placeholder="$t('editor.untitledDocument')"
         />
         <UserList />
       </div>
@@ -302,12 +303,12 @@ function updateTitle() {
     <main>
       <div v-if="isLoading" class="loading-overlay">
         <div class="loading-spinner"></div>
-        <p>Loading document...</p>
+        <p>{{ $t('editor.loading') }}</p>
       </div>
 
       <div v-else-if="loadError" class="error-message">
         <p>{{ loadError }}</p>
-        <button @click="loadDocumentFromApi">Retry</button>
+        <button @click="loadDocumentFromApi">{{ $t('editor.retry') }}</button>
       </div>
 
       <div v-else class="editor-container">
@@ -337,8 +338,8 @@ function updateTitle() {
         }}</span>
       </div>
       <div class="document-actions">
-        <button @click="$router.push('/')">Documents</button>
-        <button @click="showShareModal">Share</button>
+        <button @click="$router.push('/')">{{ $t('editor.documents') }}</button>
+        <button @click="showShareModal">{{ $t('editor.share') }}</button>
       </div>
     </footer>
 

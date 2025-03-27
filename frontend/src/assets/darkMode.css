@@ -1,0 +1,143 @@
+/* Dark Mode Theme */
+.dark-mode {
+  /* Base colors */
+  --background-color: #121212;
+  --text-color: #e0e0e0;
+  --border-color: #333;
+  --accent-color: #4b70e2;
+  --hover-color: #5d7fe6;
+  --error-color: #ff6b6b;
+  --success-color: #4caf50;
+  --warning-color: #ffb142;
+  --muted-color: #888;
+  
+  /* Component specific colors */
+  --navbar-bg: #1e1e1e;
+  --card-bg: #262626;
+  --input-bg: #333;
+  --button-bg: #4b70e2;
+  --button-text: #fff;
+  --editor-bg: #1e1e1e;
+  --editor-toolbar-bg: #333;
+  --loading-bg: rgba(30, 30, 30, 0.9);
+}
+
+/* Apply dark mode styles */
+.dark-mode body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.dark-mode .navbar {
+  background-color: var(--navbar-bg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .navbar a {
+  color: var(--text-color);
+}
+
+.dark-mode .home-container header h1 {
+  color: var(--accent-color);
+}
+
+.dark-mode .home-container header p {
+  color: var(--muted-color);
+}
+
+.dark-mode .create-btn {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+}
+
+.dark-mode .create-btn:hover {
+  background-color: var(--hover-color);
+}
+
+.dark-mode input, 
+.dark-mode textarea {
+  background-color: var(--input-bg);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+.dark-mode .app-container header,
+.dark-mode .app-container footer {
+  background-color: var(--navbar-bg);
+  border-color: var(--border-color);
+}
+
+.dark-mode .editor-container .ql-toolbar {
+  background-color: var(--editor-toolbar-bg);
+  border-color: var(--border-color);
+}
+
+.dark-mode .editor-container .ql-container {
+  background-color: var(--editor-bg);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+.dark-mode .loading-overlay {
+  background-color: var(--loading-bg);
+}
+
+.dark-mode .document-actions button,
+.dark-mode .error-message button,
+.dark-mode .retry-btn {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+}
+
+.dark-mode .document-actions button:hover,
+.dark-mode .error-message button:hover,
+.dark-mode .retry-btn:hover {
+  background-color: var(--hover-color);
+}
+
+.dark-mode .modal-content {
+  background-color: var(--card-bg);
+  border-color: var(--border-color);
+}
+
+.dark-mode .loading-spinner {
+  border-color: #333;
+  border-top-color: var(--accent-color);
+}
+
+/* Quill editor specific dark mode styles */
+.dark-mode .ql-snow .ql-picker {
+  color: var(--text-color);
+}
+
+.dark-mode .ql-snow .ql-stroke {
+  stroke: var(--text-color);
+}
+
+.dark-mode .ql-snow .ql-fill {
+  fill: var(--text-color);
+}
+
+.dark-mode .ql-snow .ql-picker-options {
+  background-color: var(--editor-toolbar-bg);
+  border-color: var(--border-color);
+}
+
+.dark-mode .ql-editor.ql-blank::before {
+  color: var(--muted-color);
+}
+
+.dark-mode .ql-snow.ql-toolbar button:hover, 
+.dark-mode .ql-snow .ql-toolbar button:hover {
+  color: var(--accent-color);
+}
+
+.dark-mode .ql-snow.ql-toolbar button:hover .ql-stroke, 
+.dark-mode .ql-snow .ql-toolbar button:hover .ql-stroke {
+  stroke: var(--accent-color);
+}
+
+.dark-mode .ql-snow.ql-toolbar button:hover .ql-fill, 
+.dark-mode .ql-snow .ql-toolbar button:hover .ql-fill {
+  fill: var(--accent-color);
+}

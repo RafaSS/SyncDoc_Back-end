@@ -1,0 +1,100 @@
+{
+  "app": {
+    "name": "SyncDoc",
+    "tagline": "Editor de Documentos Colaborativo"
+  },
+  "navbar": {
+    "documents": "Documentos",
+    "login": "Entrar",
+    "signup": "Registrar",
+    "logout": "Sair"
+  },
+  "home": {
+    "newDocument": "Novo Documento",
+    "loading": "Carregando documentos...",
+    "error": "Falha ao carregar documentos. Por favor, tente novamente.",
+    "retry": "Tentar Novamente"
+  },
+  "editor": {
+    "untitledDocument": "Documento sem título",
+    "loading": "Carregando documento...",
+    "error": "Falha ao carregar documento. Por favor, tente novamente.",
+    "retry": "Tentar Novamente",
+    "placeholder": "Digite seu texto aqui...",
+    "documents": "Documentos",
+    "share": "Compartilhar",
+    "connecting": "Conectando...",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "connectionError": "Erro de Conexão",
+    "toolbar": {
+      "heading": "Cabeçalho",
+      "h1": "Cabeçalho 1",
+      "h2": "Cabeçalho 2",
+      "h3": "Cabeçalho 3",
+      "h4": "Cabeçalho 4",
+      "h5": "Cabeçalho 5",
+      "h6": "Cabeçalho 6",
+      "normal": "Normal",
+      "bold": "Negrito",
+      "italic": "Itálico",
+      "underline": "Sublinhado",
+      "strike": "Tachado",
+      "textColor": "Cor do Texto",
+      "backgroundColor": "Cor de Fundo",
+      "orderedList": "Lista Numerada",
+      "bulletList": "Lista com Marcadores",
+      "outdent": "Diminuir Recuo",
+      "indent": "Aumentar Recuo",
+      "alignLeft": "Alinhar à Esquerda",
+      "alignCenter": "Centralizar",
+      "alignRight": "Alinhar à Direita",
+      "alignJustify": "Justificar",
+      "link": "Inserir Link",
+      "image": "Inserir Imagem",
+      "history": "Histórico"
+    }
+  },
+  "login": {
+    "welcome": "Bem-vindo de volta! Por favor, faça login para continuar.",
+    "email": "Email",
+    "password": "Senha",
+    "emailPlaceholder": "Digite seu endereço de email",
+    "passwordPlaceholder": "Digite sua senha",
+    "rememberMe": "Lembrar-me",
+    "forgotPassword": "Esqueceu a senha?",
+    "loggingIn": "Entrando...",
+    "failed": "Falha no login. Por favor, verifique suas credenciais.",
+    "orContinueWith": "ou continue com"
+  },
+  "signup": {
+    "createAccount": "Preencha o formulário abaixo para criar sua conta.",
+    "email": "Email",
+    "password": "Senha",
+    "confirmPassword": "Confirmar Senha",
+    "emailPlaceholder": "Digite seu endereço de email",
+    "passwordPlaceholder": "Crie uma senha forte",
+    "confirmPasswordPlaceholder": "Confirme sua senha",
+    "agreeToTerms": "Concordo com os Termos e Política de Privacidade",
+    "creating": "Criando conta...",
+    "failed": "Falha ao criar conta. Por favor, tente novamente.",
+    "passwordMismatch": "As senhas não coincidem",
+    "alreadyHaveAccount": "Já tem uma conta?"
+  },
+  "share": {
+    "title": "Compartilhar Documento",
+    "linkTitle": "Link do Documento",
+    "copyToClipboard": "Copiar para Área de Transferência",
+    "close": "Fechar",
+    "copied": "Copiado!",
+    "shareWithUsers": "Compartilhar com Usuários",
+    "email": "Endereço de E-mail",
+    "add": "Adicionar"
+  },
+  "settings": {
+    "language": "Idioma",
+    "darkMode": "Modo Escuro",
+    "on": "Ativado",
+    "off": "Desativado"
+  }
+}
