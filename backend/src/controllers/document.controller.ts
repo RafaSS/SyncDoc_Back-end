@@ -13,9 +13,7 @@ export class DocumentController {
     res: Response
   ): Promise<void> => {
     try {
-      const documents = await this.documentService.getAllDocuments(
-        (req as any).user.id
-      );
+      const documents = await this.documentService.getAllDocuments();
       res.status(200).json(documents);
     } catch (error) {
       const errorMessage =
@@ -30,6 +28,7 @@ export class DocumentController {
   ): Promise<void> => {
     try {
       const { id } = req.params;
+
       const document = await this.documentService.getDocumentById(id);
 
       if (!document) {
@@ -44,9 +43,9 @@ export class DocumentController {
         content: document.content,
         userCount: Object.keys(document.users).length,
         deltaCount: document.deltas.length,
-        createdAt: document.createdAt,
-        updatedAt: document.updatedAt,
-        ownerId: document.ownerId,
+        createdAt: document.created_at,
+        updatedAt: document.updated_at,
+        ownerId: document.owner_id,
       });
     } catch (error) {
       const errorMessage =
@@ -81,6 +80,7 @@ export class DocumentController {
     res: Response
   ): Promise<void> => {
     console.log("Create document request received");
+    console.log("Owner ID:", (req as any).user?.id);
     try {
       const ownerId = (req as any).user?.id;
       console.log("Owner ID:", ownerId);

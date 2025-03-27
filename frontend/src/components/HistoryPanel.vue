@@ -1,48 +1,57 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { DeltaChange } from '../types'
+import { computed, onMounted } from "vue";
+import type { DeltaChange } from "../types";
 
 const props = defineProps<{
-  history: DeltaChange[]
-}>()
+  history: DeltaChange[];
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void
-}>()
+  (e: "close"): void;
+}>();
 
 const sortedHistory = computed(() => {
-  return [...props.history].sort((a, b) => b.timestamp - a.timestamp)
-})
+  return [...props.history].sort((a, b) => b.timestamp - a.timestamp);
+});
 
 function formatTimestamp(timestamp: number): string {
-  const date = new Date(timestamp)
-  return date.toLocaleString()
+  const date = new Date(timestamp);
+  return date.toLocaleString();
 }
 
-function operationDescription(delta: any): string {
-  if (!delta || !delta.ops) return 'Unknown change'
-  
-  let insertCount = 0
-  let deleteCount = 0
-  let formatCount = 0
-  
-  delta.ops.forEach((op: any) => {
-    if (op.insert) insertCount++
-    if (op.delete) deleteCount++
-    if (op.retain && op.attributes) formatCount++
-  })
-  
-  const parts = []
-  if (insertCount > 0) parts.push(`${insertCount} insertion${insertCount !== 1 ? 's' : ''}`)
-  if (deleteCount > 0) parts.push(`${deleteCount} deletion${deleteCount !== 1 ? 's' : ''}`)
-  if (formatCount > 0) parts.push(`${formatCount} format change${formatCount !== 1 ? 's' : ''}`)
-  
-  return parts.join(', ') || 'Document change'
+function operationDescription(change: DeltaChange): string {
+  if (!change || !change.delta || !change.delta.ops) {
+    return "Unknown change";
+  }
+
+  let insertCount = 0;
+  let deleteCount = 0;
+  let formatCount = 0;
+
+  change.delta.ops.forEach((op: any) => {
+    if (op.insert) insertCount++;
+    if (op.delete) deleteCount++;
+    if (op.retain && op.attributes) formatCount++;
+  });
+
+  const parts = [];
+  if (insertCount > 0)
+    parts.push(`${insertCount} insertion${insertCount !== 1 ? "s" : ""}`);
+  if (deleteCount > 0)
+    parts.push(`${deleteCount} deletion${deleteCount !== 1 ? "s" : ""}`);
+  if (formatCount > 0)
+    parts.push(`${formatCount} format change${formatCount !== 1 ? "s" : ""}`);
+
+  return parts.join(", ") || "Document change";
 }
 
 function close() {
-  emit('close')
+  emit("close");
 }
+
+onMounted(() => {
+  console.log("History panel mounted with history:", props.history);
+});
 </script>
 
 <template>
@@ -51,24 +60,29 @@ function close() {
       <h3>Document History</h3>
       <button class="close-btn" @click="close">&times;</button>
     </div>
-    
+
     <div class="history-content">
-      <div v-if="sortedHistory.length === 0" class="no-history">
+      <div
+        v-if="!props.history || props.history.length === 0"
+        class="no-history"
+      >
         <p>No history available for this document.</p>
       </div>
-      
+
       <div v-else class="history-list">
-        <div 
-          v-for="(change, index) in sortedHistory" 
+        <div
+          v-for="(change, index) in sortedHistory"
           :key="index"
           class="history-item"
         >
           <div class="history-item-header">
             <span class="history-user">{{ change.userName }}</span>
-            <span class="history-time">{{ formatTimestamp(change.timestamp) }}</span>
+            <span class="history-time">{{
+              formatTimestamp(change.timestamp)
+            }}</span>
           </div>
           <div class="history-operation">
-            {{ operationDescription(change.delta) }}
+            {{ operationDescription(change) }}
           </div>
         </div>
       </div>
@@ -149,7 +163,7 @@ function close() {
 
 .history-user {
   font-weight: bold;
-  color: #4285F4;
+  color: #4285f4;
 }
 
 .history-time {

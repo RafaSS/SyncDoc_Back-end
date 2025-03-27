@@ -2,60 +2,49 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
+import { apiService } from "../services/apiService";
 import DocumentList from "../components/DocumentList.vue";
 
 const router = useRouter();
 const documentStore = useDocumentStore();
 const isLoading = ref(true);
+const error = ref("");
 const documents = ref<Array<{ id: string; title: string; userCount: number }>>(
   []
 );
 
 onMounted(async () => {
-  // // Initialize the socket connection
-  const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:3000";
-  documentStore.initializeSocket(SOCKET_URL);
+  // Initialize the document store for user ID only, not sockets
+  await documentStore.initialize();
+  await fetchDocuments();
+});
 
+async function fetchDocuments() {
+  isLoading.value = true;
+  error.value = "";
+  
   try {
     // Fetch documents from API
-    const userId = documentStore.userId;
-    const response = await fetch(
-      `${
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api"
-      }/documents?userId=${userId}`
-    );
-    documents.value = await response.json();
-  } catch (error) {
-    console.error("Failed to fetch documents:", error);
+    const response = await apiService.getDocuments();
+    documents.value = response;
+    console.log("Documents loaded:", documents.value);
+  } catch (err) {
+    console.error("Failed to fetch documents:", err);
+    error.value = "Failed to load documents. Please try again.";
   } finally {
     isLoading.value = false;
   }
-});
+}
 
 async function createNewDocument() {
   try {
-    const response = await fetch(
-      `${
-        import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api"
-      }/documents`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    const documentId = await apiService.createDocument(documentStore.userId);
+    if (documentId) {
+      router.push({ name: "editor", params: { id: documentId } });
     }
-
-    const data = await response.json();
-    if (data.id) {
-      router.push({ name: "editor", params: { id: data.id } });
-    }
-  } catch (error) {
-    console.error("Error creating new document:", error);
+  } catch (err) {
+    console.error("Error creating new document:", err);
+    error.value = "Failed to create document. Please try again.";
   }
 }
 
@@ -79,7 +68,13 @@ function openDocument(id: string) {
       </div>
 
       <div v-if="isLoading" class="loading">
+        <div class="loading-spinner"></div>
         <p>Loading documents...</p>
+      </div>
+      
+      <div v-else-if="error" class="error">
+        <p>{{ error }}</p>
+        <button @click="fetchDocuments" class="retry-btn">Retry</button>
       </div>
 
       <DocumentList
@@ -142,5 +137,39 @@ header p {
   text-align: center;
   padding: 2rem;
   color: #666;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4285f4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.error {
+  text-align: center;
+  padding: 2rem;
+  color: #e74c3c;
+}
+
+.retry-btn {
+  margin-top: 1rem;
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

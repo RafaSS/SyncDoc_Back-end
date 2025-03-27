@@ -1,6 +1,20 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import NavBar from "./components/NavBar.vue";
+import { useAuthStore } from "./stores/authStore";
+import { onMounted } from "vue";
+
+// Initialize auth state if not already done
+const authStore = useAuthStore();
+onMounted(async () => {
+  if (!authStore.initialized) {
+    console.error("Initializing auth store in App.vue");
+    await authStore.initialize();
+  }
+});
+</script>
 
 <template>
+  <NavBar />
   <router-view />
 </template>
 

@@ -35,7 +35,7 @@ const allowedOrigins = process.env.CORS_ORIGINS
 console.log(`Allowed origins: ${allowedOrigins.join(", ")}`);
 
 // Get port from environment variable or use default
-const PORT = isTest ? process.env.TEST_PORT || 3003 : process.env.PORT || 3000;
+const PORT = isTest ? process.env.TEST_PORT || 3003 : process.env.PORT || 3001;
 
 // Export port for testing
 export const expressPort = PORT;
@@ -57,7 +57,7 @@ if (isTest) {
   services = testHelpers.createMockServices();
 } else {
   // Initialize Socket.IO with the HTTP server
-  socketService.setupSocketHandlers();
+  // socketService.setupSocketHandlers(server);
 }
 
 // In-memory cache of connected users (socketId -> document data)
@@ -75,10 +75,7 @@ const startServer = () => {
 
 // Apply middleware
 app.use(express.json());
-// app.use(express.urlencoded({ extended: true }));
-// app.use(cookieParser(process.env.COOKIE_SECRET));
-
-// Enable CORS for all routes
+app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use(
   cors({
     origin: allowedOrigins,

@@ -6,13 +6,40 @@ import { DeltaChange, DeltaOperation } from "./delta.interface";
 export interface IDocument {
   id: string;
   title: string;
-  content: DeltaOperation[];
-  users: Record<string, string>;
+  content: string;
   deltas: DeltaChange[];
-  createdAt: Date;
-  updatedAt: Date;
-  ownerId?: string;
-  documentContent?: any;
+  users: Record<string, string>;
+  owner_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Document permission levels
+ */
+export type PermissionLevel = 'viewer' | 'editor' | 'owner';
+
+/**
+ * Document permission record
+ */
+export interface IDocumentPermission {
+  id: string;
+  user_id: string;
+  document_id: string;
+  permission_level: PermissionLevel;
+  created_at: string;
+}
+
+/**
+ * Document summary for listings
+ */
+export interface IDocumentSummary {
+  id: string;
+  title: string;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+  userCount: number;
 }
 
 /**

@@ -5,14 +5,17 @@ import {
 } from "../../middleware/auth.middleware";
 import { createServices } from "../../config/service-factory";
 import { supabase } from "../../config/supabase";
+import { IDocumentService } from "../../interfaces/document-service.interface";
+import cookieParser from "cookie-parser";
 
 const router = Router();
+router.use(cookieParser());
 
 // Determine if we're in test mode
 const isTest = process.env.NODE_ENV === "test";
 
 // In test mode, use the mock document service
-let documentService;
+let documentService: IDocumentService;
 if (isTest) {
   // Import the mockDocumentService from test-helpers
   const { mockDocumentService } = require("../../test-helpers");
@@ -26,22 +29,26 @@ if (isTest) {
 const authMiddleware = isTest ? [] : [isAuthenticated];
 const viewPermMiddleware = isTest
   ? []
-  : [isAuthenticated, hasDocumentPermission("view")];
+  : [isAuthenticated, hasDocumentPermission("viewer")];
 const editPermMiddleware = isTest
   ? []
-  : [isAuthenticated, hasDocumentPermission("edit")];
+  : [isAuthenticated, hasDocumentPermission("editor")];
 const ownPermMiddleware = isTest
   ? []
-  : [isAuthenticated, hasDocumentPermission("own")];
+  : [isAuthenticated, hasDocumentPermission("owner")];
 
 /**
  * @route GET /api/documents
  * @description Get all documents accessible to the user
  * @access Private
  */
-router.get("/", async (req, res) => {
+router.get("/", ...authMiddleware, async (req, res) => {
+  console.log("Fetching all documents... 🥴");
   try {
-    const documentList = await documentService.getAllDocuments();
+    // Get user ID from authenticated user
+    const userId = (req as any).user?.id;
+    const documentList = await documentService.getAllDocumentsForUser(userId);
+    console.log("Fetched documents:", documentList);
     res.json(documentList);
   } catch (error) {
     console.error("Error fetching documents:", error);
@@ -55,8 +62,8 @@ router.get("/", async (req, res) => {
  * @access Private
  */
 router.get("/:id", async (req, res) => {
+  console.log("Fetching document with ID... 🥴");
   const { id } = req.params;
-  console.log("Document:", document);
   try {
     const document = await documentService.getDocumentById(id);
 
@@ -75,6 +82,7 @@ router.get("/:id", async (req, res) => {
       content: document.content,
       userCount,
     });
+    console.log("Document fetched successfully 😍", document);
   } catch (error) {
     console.error("Error fetching document:", error);
     res.status(500).json({ error: "Failed to fetch document" });
@@ -86,17 +94,21 @@ router.get("/:id", async (req, res) => {
  * @description Get document change history
  * @access Private
  */
-router.get("/:id/history", ...viewPermMiddleware, async (req, res) => {
+router.get("/:id/history", async (req, res) => {
+  console.log("Fetching document history... 🥴");
   const { id } = req.params;
 
   try {
-    const history = await documentService.getDocumentHistory(id);
+    const document = await documentService.getDocumentById(id);
 
-    if (!history) {
+    if (!document) {
       return res.status(404).json({ error: "Document not found" });
     }
 
-    res.json(history);
+    // Return the deltas array from the document
+    res.json({
+      deltas: document.deltas || [],
+    });
   } catch (error) {
     console.error("Error fetching document history:", error);
     res.status(500).json({ error: "Failed to fetch document history" });
@@ -108,10 +120,12 @@ router.get("/:id/history", ...viewPermMiddleware, async (req, res) => {
  * @description Create a new document
  * @access Private
  */
-router.post("/", async (req, res) => {
+router.post("/", ...authMiddleware, async (req, res) => {
   console.log("Creating document...🎶🎶🎶");
   try {
+    // Get user ID from authenticated user
     const userId = (req as any).user?.id;
+    console.log("User ID:", userId);
     const { id } = await documentService.createDocument(
       undefined,
       undefined,
@@ -135,7 +149,8 @@ router.post("/", async (req, res) => {
  * @description Share a document with another user
  * @access Private
  */
-router.post("/:id/share", ...ownPermMiddleware, async (req, res) => {
+router.post("/:id/share", async (req, res) => {
+  console.log("Sharing document...🎶🎶🎶");
   const { id } = req.params;
   const { email, role } = req.body;
 

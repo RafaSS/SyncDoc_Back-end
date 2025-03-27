@@ -4,7 +4,6 @@
 export interface DeltaOperation {
   insert?: string | { [key: string]: any };
   delete?: number;
-  retain?: number;
   attributes?: { [key: string]: any };
 }
 
@@ -19,7 +18,7 @@ export interface Delta {
  * Represents a delta change with metadata
  */
 export interface DeltaChange {
-  delta: DeltaOperation[];
+  delta: Delta;
   userId: string;
   userName: string;
   timestamp: number;

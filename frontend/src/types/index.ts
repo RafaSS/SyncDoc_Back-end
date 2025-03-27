@@ -17,3 +17,21 @@ export interface User {
   email: string;
   color?: string;
 }
+
+export interface DeltaChange {
+  userName: string;
+  userId: string;
+  timestamp: number;
+  delta: Delta;
+  socketId: string;
+}
+
+export interface Document {
+  id: string;
+  title: string;
+  content: any;
+  users: Record<string, string>;
+  deltas: DeltaChange[];
+  created_at: string;
+  updated_at: string;
+}
