@@ -14,6 +14,6 @@ app.use(router);
 // Initialize auth store before mounting
 const authStore = useAuthStore();
 console.error("Initializing auth store in main.ts");
-await authStore.initialize();
-
-app.mount("#app");
+authStore.initialize().then(() => {
+  app.mount("#app");
+});

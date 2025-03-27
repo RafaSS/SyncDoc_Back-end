@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import type { DeltaChange } from "../types";
-import type { Delta } from "../types";
 
 const props = defineProps<{
   history: DeltaChange[];

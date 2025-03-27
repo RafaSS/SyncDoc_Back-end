@@ -1,7 +1,7 @@
 import { Socket, io } from "socket.io-client";
 import { ref } from "vue";
 import type Delta from "quill";
-import { AuthService } from "./authService";
+
 import { getCookie } from "../utils/cookie";
 
 // Event handlers type definitions
@@ -56,7 +56,10 @@ export class SocketService {
 
     // Get current auth token from cookie
     const authToken = getCookie("auth_token");
-    console.info("Auth token for socket:", authToken ? "Present" : "Not present");
+    console.info(
+      "Auth token for socket:",
+      authToken ? "Present" : "Not present"
+    );
 
     // Initialize socket connection
     this.socket = io(url, {
@@ -113,12 +116,18 @@ export class SocketService {
     });
 
     // Handle load-document event from backend
-    this.socket.on(this.SOCKET_EVENTS.LOAD_DOCUMENT, (content: string, deltas: any[]) => {
-      this.triggerEventHandlers(this.SOCKET_EVENTS.DOCUMENT_CONTENT, content);
-      if (deltas) {
-        this.triggerEventHandlers(this.SOCKET_EVENTS.DOCUMENT_HISTORY, deltas);
+    this.socket.on(
+      this.SOCKET_EVENTS.LOAD_DOCUMENT,
+      (content: string, deltas: any[]) => {
+        this.triggerEventHandlers(this.SOCKET_EVENTS.DOCUMENT_CONTENT, content);
+        if (deltas) {
+          this.triggerEventHandlers(
+            this.SOCKET_EVENTS.DOCUMENT_HISTORY,
+            deltas
+          );
+        }
       }
-    });
+    );
 
     this.socket.on(this.SOCKET_EVENTS.DOCUMENT_TITLE, (title: string) => {
       this.triggerEventHandlers(this.SOCKET_EVENTS.DOCUMENT_TITLE, title);
@@ -147,8 +156,8 @@ export class SocketService {
     });
 
     this.socket.on(
-      this.SOCKET_EVENTS.TEXT_CHANGE, 
-      (documentId: string, delta: any, source: string, userId: string) => {
+      this.SOCKET_EVENTS.TEXT_CHANGE,
+      (_documentId: string, delta: any, _source: string, userId: string) => {
         this.triggerEventHandlers(
           this.SOCKET_EVENTS.TEXT_CHANGE,
           delta,
@@ -279,14 +288,14 @@ export class SocketService {
       console.error("Socket not connected, cannot update title");
       return;
     }
-    
+
     // Get current document ID from active document
     const documentId = this.getCurrentDocumentId();
     if (!documentId) {
       console.error("No active document, cannot update title");
       return;
     }
-    
+
     // Updated to match backend's expected parameters
     this.socket.emit("title-change", documentId, title);
   }
@@ -299,16 +308,16 @@ export class SocketService {
       console.error("Socket not connected, cannot send cursor update");
       return;
     }
-    
+
     // Get current document ID and user ID
     const documentId = this.getCurrentDocumentId();
     const userId = position.userId;
-    
+
     if (!documentId) {
       console.error("No active document, cannot send cursor update");
       return;
     }
-    
+
     // Updated to match backend's expected event and parameters
     this.socket.emit("cursor-move", documentId, position, userId);
   }
@@ -323,7 +332,7 @@ export class SocketService {
     if (matches && matches[1]) {
       return matches[1];
     }
-    
+
     // If not found in URL, return null
     return null;
   }

@@ -2,7 +2,7 @@
 import { onMounted, ref, onBeforeUnmount, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
-import { useAuthStore } from "../stores/authStore";
+// import { useAuthStore } from "../stores/authStore";
 import { socketService } from "../services/socketService";
 import { apiService } from "../services/apiService";
 import { QuillEditor } from "@vueup/vue-quill";
@@ -10,7 +10,6 @@ import "@vueup/vue-quill/dist/vue-quill.snow.css";
 import UserList from "../components/UserList.vue";
 import EditorToolbar from "../components/EditorToolbar.vue";
 import ShareModal from "../components/ShareModal.vue";
-import HistoryPanel from "../components/HistoryPanel.vue";
 import QuillCursors from "quill-cursors";
 
 // Types
@@ -23,7 +22,7 @@ interface DocumentResponse {
 
 const route = useRoute();
 const documentStore = useDocumentStore();
-const authStore = useAuthStore();
+// const authStore = useAuthStore();
 const documentId = ref(route.params.id as string);
 const editorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
 const isShowingShareModal = ref(false);
