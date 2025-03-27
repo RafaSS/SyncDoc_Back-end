@@ -95,7 +95,8 @@ async function loadDocumentFromApi() {
     documentStore.updateDocumentTitle(
       documentData.value?.title || t("editor.untitledDocument")
     );
-    documentTitle.value = documentData.value?.title || t("editor.untitledDocument");
+    documentTitle.value =
+      documentData.value?.title || t("editor.untitledDocument");
 
     // Fetch document history separately
     await loadDocumentHistory();
@@ -206,62 +207,64 @@ function joinDocument() {
 
 // Leave the current document
 function leaveDocument() {
-  if (!documentId.value) return;
-  socketService.leaveDocument(documentId.value);
+  socketService.leaveDocument();
+  documentStore.resetDocument();
 }
 
 // Text change handler
 function onEditorTextChange(delta: any, _oldContents: any, source: string) {
-  if (source === "user" && documentStore.connected) {
-    // Emit changes to server
-    socketService.updateText(delta);
-  } else if (source === "api") {
-    // Handle remote changes from server
-    // These are now handled via the document store and socket events
-  }
+  if (source !== "user" || !editorRef.value) return;
+
+  const quill = editorRef.value.getQuill();
+  const content = quill.getContents();
+  console.log("Delta:", delta);
+  console.log("Content:", content);
+  // Send delta to server through socket service directly
+  socketService.sendTextChange(
+    documentId.value,
+    delta,
+    source,
+    documentStore.userId,
+    content
+  );
 }
 
 // Selection change handler
 function onEditorSelectionChange(range: any, _oldRange: any, source: string) {
-  if (
-    source === "user" &&
-    range &&
-    documentStore.connected &&
-    editorRef.value
-  ) {
-    // Send cursor position to server
-    socketService.updateCursor(range);
-  }
+  if (source !== "user" || !range || !editorRef.value) return;
+
+  // Send cursor update to server
+  socketService.sendCursorUpdate({
+    range,
+    userId: documentStore.userId,
+    username: documentStore.userName,
+  });
 }
 
 // After QuillEditor is ready
 function onEditorReady(quill: any) {
-  if (!documentData.value?.content) return;
+  console.log("Quill editor is ready");
 
-  try {
-    // Set editor content
-    if (documentData.value.content.ops) {
-      quill.setContents(documentData.value.content.ops);
-    } else if (typeof documentData.value.content === "string") {
-      quill.setText(documentData.value.content);
-    }
+  // Set Quill instance in document store
+  documentStore.setQuillInstance(editorRef.value, documentId.value);
 
-    // Initialize cursors module
-    const cursors = quill.getModule("cursors");
-    if (cursors) {
-      // Make cursors available to document store
-      documentStore.setCursorsModule(cursors);
-    }
-
-    // Apply any pending remote cursor updates
-    Object.entries(documentStore.remoteCursors).forEach(
-      ([userId, cursorData]) => {
-        documentStore.updateRemoteCursor(userId, cursorData);
-      }
-    );
-  } catch (error) {
-    console.error("Error initializing editor:", error);
+  // Load content into Quill now that it's ready
+  if (documentData.value && documentData.value.content) {
+    documentStore.updateDocumentContent(documentData.value.content);
   }
+
+  // Register cursor event handlers
+  quill.on("selection-change", (range: any, oldRange: any, source: string) => {
+    onEditorSelectionChange(range, oldRange, source);
+  });
+
+  quill.on("text-change", (delta: any, oldContents: any, source: string) => {
+    console.log("Text change:", delta, oldContents, source);
+    onEditorTextChange(delta, oldContents, source);
+  });
+
+  // Enable editor after initialization
+  quill.enable();
 }
 
 // Toggle share modal
@@ -288,7 +291,7 @@ function updateTitle() {
 <template>
   <div class="app-container">
     <header>
-      <h1>{{ $t('app.name') }}</h1>
+      <h1>{{ $t("app.name") }}</h1>
       <div class="document-info">
         <input
           type="text"
@@ -303,12 +306,12 @@ function updateTitle() {
     <main>
       <div v-if="isLoading" class="loading-overlay">
         <div class="loading-spinner"></div>
-        <p>{{ $t('editor.loading') }}</p>
+        <p>{{ $t("editor.loading") }}</p>
       </div>
 
       <div v-else-if="loadError" class="error-message">
         <p>{{ loadError }}</p>
-        <button @click="loadDocumentFromApi">{{ $t('editor.retry') }}</button>
+        <button @click="loadDocumentFromApi">{{ $t("editor.retry") }}</button>
       </div>
 
       <div v-else class="editor-container">
@@ -338,8 +341,8 @@ function updateTitle() {
         }}</span>
       </div>
       <div class="document-actions">
-        <button @click="$router.push('/')">{{ $t('editor.documents') }}</button>
-        <button @click="showShareModal">{{ $t('editor.share') }}</button>
+        <button @click="$router.push('/')">{{ $t("editor.documents") }}</button>
+        <button @click="showShareModal">{{ $t("editor.share") }}</button>
       </div>
     </footer>
 
