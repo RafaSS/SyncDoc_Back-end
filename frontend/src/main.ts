@@ -19,9 +19,14 @@ app.use(i18n);
 const authStore = useAuthStore();
 const themeStore = useThemeStore();
 console.error("Initializing auth store in main.ts");
-await authStore.initialize();
-
-// Initialize theme
-themeStore.initialize();
-
-app.mount("#app");
+authStore
+  .initialize()
+  .then(() => {
+    themeStore.initialize();
+  })
+  .catch((error) => {
+    console.error("Error initializing auth store:", error);
+  })
+  .finally(() => {
+    app.mount("#app");
+  });

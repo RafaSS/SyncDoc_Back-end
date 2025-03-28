@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
+import { useI18n } from "vue-i18n";
 
-const { t } = useI18n();
+const { t: $t } = useI18n();
 const emit = defineEmits<{
-  (e: 'showHistory'): void
-}>()
+  (e: "showHistory"): void;
+}>();
 
 function showHistory() {
-  emit('showHistory')
+  emit("showHistory");
 }
 </script>
 
@@ -15,44 +15,86 @@ function showHistory() {
   <div id="toolbar" class="editor-toolbar">
     <span class="ql-formats">
       <select class="ql-header" :title="$t('editor.toolbar.heading')">
-        <option value="1">{{ $t('editor.toolbar.h1') }}</option>
-        <option value="2">{{ $t('editor.toolbar.h2') }}</option>
-        <option value="3">{{ $t('editor.toolbar.h3') }}</option>
-        <option value="4">{{ $t('editor.toolbar.h4') }}</option>
-        <option value="5">{{ $t('editor.toolbar.h5') }}</option>
-        <option value="6">{{ $t('editor.toolbar.h6') }}</option>
-        <option selected>{{ $t('editor.toolbar.normal') }}</option>
+        <option value="1">{{ $t("editor.toolbar.h1") }}</option>
+        <option value="2">{{ $t("editor.toolbar.h2") }}</option>
+        <option value="3">{{ $t("editor.toolbar.h3") }}</option>
+        <option value="4">{{ $t("editor.toolbar.h4") }}</option>
+        <option value="5">{{ $t("editor.toolbar.h5") }}</option>
+        <option value="6">{{ $t("editor.toolbar.h6") }}</option>
+        <option selected>{{ $t("editor.toolbar.normal") }}</option>
       </select>
     </span>
     <span class="ql-formats">
       <button class="ql-bold" :title="$t('editor.toolbar.bold')"></button>
       <button class="ql-italic" :title="$t('editor.toolbar.italic')"></button>
-      <button class="ql-underline" :title="$t('editor.toolbar.underline')"></button>
+      <button
+        class="ql-underline"
+        :title="$t('editor.toolbar.underline')"
+      ></button>
       <button class="ql-strike" :title="$t('editor.toolbar.strike')"></button>
     </span>
     <span class="ql-formats">
       <select class="ql-color" :title="$t('editor.toolbar.textColor')"></select>
-      <select class="ql-background" :title="$t('editor.toolbar.backgroundColor')"></select>
+      <select
+        class="ql-background"
+        :title="$t('editor.toolbar.backgroundColor')"
+      ></select>
     </span>
     <span class="ql-formats">
-      <button class="ql-list" value="ordered" :title="$t('editor.toolbar.orderedList')"></button>
-      <button class="ql-list" value="bullet" :title="$t('editor.toolbar.bulletList')"></button>
-      <button class="ql-indent" value="-1" :title="$t('editor.toolbar.outdent')"></button>
-      <button class="ql-indent" value="+1" :title="$t('editor.toolbar.indent')"></button>
+      <button
+        class="ql-list"
+        value="ordered"
+        :title="$t('editor.toolbar.orderedList')"
+      ></button>
+      <button
+        class="ql-list"
+        value="bullet"
+        :title="$t('editor.toolbar.bulletList')"
+      ></button>
+      <button
+        class="ql-indent"
+        value="-1"
+        :title="$t('editor.toolbar.outdent')"
+      ></button>
+      <button
+        class="ql-indent"
+        value="+1"
+        :title="$t('editor.toolbar.indent')"
+      ></button>
     </span>
     <span class="ql-formats">
-      <button class="ql-align" value="" :title="$t('editor.toolbar.alignLeft')"></button>
-      <button class="ql-align" value="center" :title="$t('editor.toolbar.alignCenter')"></button>
-      <button class="ql-align" value="right" :title="$t('editor.toolbar.alignRight')"></button>
-      <button class="ql-align" value="justify" :title="$t('editor.toolbar.alignJustify')"></button>
+      <button
+        class="ql-align"
+        value=""
+        :title="$t('editor.toolbar.alignLeft')"
+      ></button>
+      <button
+        class="ql-align"
+        value="center"
+        :title="$t('editor.toolbar.alignCenter')"
+      ></button>
+      <button
+        class="ql-align"
+        value="right"
+        :title="$t('editor.toolbar.alignRight')"
+      ></button>
+      <button
+        class="ql-align"
+        value="justify"
+        :title="$t('editor.toolbar.alignJustify')"
+      ></button>
     </span>
     <span class="ql-formats">
       <button class="ql-link" :title="$t('editor.toolbar.link')"></button>
       <button class="ql-image" :title="$t('editor.toolbar.image')"></button>
     </span>
     <span class="ql-formats">
-      <button class="history-btn" @click="showHistory" :title="$t('editor.toolbar.history')">
-        <i class="fas fa-history"></i> {{ $t('editor.toolbar.history') }}
+      <button
+        class="history-btn"
+        @click="showHistory"
+        :title="$t('editor.toolbar.history')"
+      >
+        <i class="fas fa-history"></i> {{ $t("editor.toolbar.history") }}
       </button>
     </span>
   </div>

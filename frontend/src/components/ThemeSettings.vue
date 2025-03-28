@@ -1,10 +1,11 @@
 <template>
   <div class="theme-settings">
     <div class="setting-group">
-      <label for="language-select">{{ $t('settings.language') }}</label>
-      <select 
-        id="language-select" 
-        v-model="currentLanguage" 
+      <!-- <label for="language-select">{{ $t('settings.language') }}</label> -->
+      <select
+        class="language-select dark-mode-select"
+        id="language-select"
+        v-model="currentLanguage"
         @change="changeLanguage"
       >
         <option value="en">English</option>
@@ -12,16 +13,16 @@
       </select>
     </div>
     <div class="setting-group">
-      <label for="theme-toggle">{{ $t('settings.darkMode') }}</label>
+      <label for="theme-toggle">{{ $t("settings.darkMode") }}</label>
       <div class="toggle-switch">
-        <input 
-          type="checkbox" 
-          id="theme-toggle" 
+        <input
+          type="checkbox"
+          id="theme-toggle"
           v-model="isDarkMode"
           @change="themeStore.toggleDarkMode()"
         />
         <label for="theme-toggle" class="toggle-label">
-          <span>{{ isDarkMode ? $t('settings.on') : $t('settings.off') }}</span>
+          <span>{{ isDarkMode ? $t("settings.on") : $t("settings.off") }}</span>
         </label>
       </div>
     </div>
@@ -29,16 +30,18 @@
 </template>
 
 <script setup lang="ts">
-import { useI18n } from 'vue-i18n';
-import { useThemeStore } from '../stores/themeStore';
-import { computed } from 'vue';
+import { useI18n } from "vue-i18n";
+import { useThemeStore } from "../stores/themeStore";
+import { computed } from "vue";
 
 const { locale } = useI18n();
 const themeStore = useThemeStore();
 
 const currentLanguage = computed({
   get: () => locale.value,
-  set: (value) => { locale.value = value; }
+  set: (value) => {
+    locale.value = value;
+  },
 });
 
 const isDarkMode = computed(() => themeStore.darkMode);
@@ -53,7 +56,7 @@ function changeLanguage() {
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  margin-right: 1rem;
+  margin: 1rem;
 }
 
 .setting-group {
@@ -71,6 +74,8 @@ select {
   border-radius: 4px;
   border: 1px solid #ddd;
   background-color: white;
+  color: #333;
+  font-size: 0.9rem;
 }
 
 .dark-mode select {
@@ -103,7 +108,7 @@ input[type="checkbox"] {
 }
 
 .toggle-label::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 3px;
   left: 3px;

@@ -1,28 +1,28 @@
-import { defineStore } from 'pinia';
-import { ref, watch } from 'vue';
+import { defineStore } from "pinia";
+import { ref } from "vue";
 
-export const useThemeStore = defineStore('theme', () => {
+export const useThemeStore = defineStore("theme", () => {
   // State
-  const darkMode = ref(localStorage.getItem('darkMode') === 'true');
-  const language = ref(localStorage.getItem('language') || 'en');
+  const darkMode = ref(localStorage.getItem("darkMode") === "true");
+  const language = ref(localStorage.getItem("language") || "en");
 
   // Actions
   function toggleDarkMode() {
     darkMode.value = !darkMode.value;
-    localStorage.setItem('darkMode', darkMode.value.toString());
+    localStorage.setItem("darkMode", darkMode.value.toString());
     applyTheme();
   }
 
   function setLanguage(lang: string) {
     language.value = lang;
-    localStorage.setItem('language', lang);
+    localStorage.setItem("language", lang);
   }
 
   function applyTheme() {
     if (darkMode.value) {
-      document.documentElement.classList.add('dark-mode');
+      document.documentElement.classList.add("dark-mode");
     } else {
-      document.documentElement.classList.remove('dark-mode');
+      document.documentElement.classList.remove("dark-mode");
     }
   }
 
@@ -36,6 +36,6 @@ export const useThemeStore = defineStore('theme', () => {
     language,
     toggleDarkMode,
     setLanguage,
-    initialize
+    initialize,
   };
 });
