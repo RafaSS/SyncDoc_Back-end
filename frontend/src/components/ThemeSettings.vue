@@ -1,7 +1,6 @@
 <template>
   <div class="theme-settings">
     <div class="setting-group">
-      <!-- <label for="language-select">{{ $t('settings.language') }}</label> -->
       <select
         class="language-select dark-mode-select"
         id="language-select"
@@ -13,7 +12,7 @@
       </select>
     </div>
     <div class="setting-group">
-      <label for="theme-toggle">{{ $t("settings.darkMode") }}</label>
+      <label for="theme-toggle">Dark Mode</label>
       <div class="toggle-switch">
         <input
           type="checkbox"
@@ -22,7 +21,7 @@
           @change="themeStore.toggleDarkMode()"
         />
         <label for="theme-toggle" class="toggle-label">
-          <span>{{ isDarkMode ? $t("settings.on") : $t("settings.off") }}</span>
+          <span>{{ isDarkMode ? "On" : "Off" }}</span>
         </label>
       </div>
     </div>
@@ -30,17 +29,15 @@
 </template>
 
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
 import { useThemeStore } from "../stores/themeStore";
 import { computed } from "vue";
 
-const { locale } = useI18n();
 const themeStore = useThemeStore();
 
 const currentLanguage = computed({
-  get: () => locale.value,
+  get: () => themeStore.language,
   set: (value) => {
-    locale.value = value;
+    themeStore.setLanguage(value);
   },
 });
 

@@ -168,6 +168,7 @@ input {
   font-size: 1rem;
   transition: all 0.3s;
   background-color: #f9fafb;
+  color: #333;
 }
 
 input:focus {
@@ -322,7 +323,7 @@ input:focus {
 }
 
 .social-button.google i {
-  color: #DB4437;
+  color: #db4437;
 }
 
 .social-button.github i {
