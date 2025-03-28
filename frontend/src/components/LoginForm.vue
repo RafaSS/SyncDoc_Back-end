@@ -2,11 +2,9 @@
 import { ref, onMounted } from "vue";
 import { useAuthStore } from "../stores/authStore";
 import { useRouter } from "vue-router";
-import { useI18n } from 'vue-i18n';
 
 const authStore = useAuthStore();
 const router = useRouter();
-const { t } = useI18n();
 
 const email = ref("");
 const password = ref("");
@@ -26,7 +24,7 @@ async function handleLogin() {
     if (authStore.isLoggedIn) {
       router.push("/");
     } else {
-      errorMessage.value = authStore.error || t('login.failed');
+      errorMessage.value = authStore.error || "Login failed. Please try again.";
     }
   } catch (error: any) {
     errorMessage.value = error.message;
@@ -40,8 +38,8 @@ function togglePasswordVisibility() {
 
 <template>
   <div class="login-form">
-    <h2>{{ $t('navbar.login') }}</h2>
-    <p class="form-subtitle">{{ $t('login.welcome') }}</p>
+    <h2>Log In</h2>
+    <p class="form-subtitle">Welcome back!</p>
 
     <div v-if="errorMessage" class="error">
       <i class="fas fa-exclamation-circle"></i>
@@ -52,7 +50,7 @@ function togglePasswordVisibility() {
       <div class="form-group">
         <label for="email">
           <i class="fas fa-envelope"></i>
-          {{ $t('login.email') }}
+          Email
         </label>
         <div class="input-wrapper">
           <input
@@ -60,7 +58,7 @@ function togglePasswordVisibility() {
             v-model="email"
             type="email"
             required
-            :placeholder="$t('login.emailPlaceholder')"
+            placeholder="Enter your email"
             autocomplete="email"
           />
         </div>
@@ -69,7 +67,7 @@ function togglePasswordVisibility() {
       <div class="form-group">
         <label for="password">
           <i class="fas fa-lock"></i>
-          {{ $t('login.password') }}
+          Password
         </label>
         <div class="input-wrapper">
           <input
@@ -77,16 +75,18 @@ function togglePasswordVisibility() {
             v-model="password"
             :type="isPasswordVisible ? 'text' : 'password'"
             required
-            :placeholder="$t('login.passwordPlaceholder')"
+            placeholder="Enter your password"
             autocomplete="current-password"
           />
-          <button 
-            type="button" 
-            class="password-toggle" 
+          <button
+            type="button"
+            class="password-toggle"
             @click="togglePasswordVisibility"
             tabindex="-1"
           >
-            <i :class="isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+            <i
+              :class="isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye'"
+            ></i>
           </button>
         </div>
       </div>
@@ -94,21 +94,21 @@ function togglePasswordVisibility() {
       <div class="form-options">
         <label class="remember-me">
           <input type="checkbox" />
-          <span>{{ $t('login.rememberMe') }}</span>
+          <span>Remember me</span>
         </label>
         <router-link to="/forgot-password" class="forgot-password">
-          {{ $t('login.forgotPassword') }}
+          Forgot Password?
         </router-link>
       </div>
 
       <button type="submit" :disabled="authStore.loading" class="login-button">
         <i class="fas fa-sign-in-alt"></i>
-        {{ authStore.loading ? $t('login.loggingIn') : $t('navbar.login') }}
+        {{ authStore.loading ? "Logging in..." : "Log In" }}
       </button>
     </form>
 
     <div class="social-login">
-      <p class="divider">{{ $t('login.orContinueWith') }}</p>
+      <p class="divider">Or continue with</p>
       <div class="social-buttons">
         <button class="social-button google">
           <i class="fab fa-google"></i>
@@ -205,17 +205,32 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #555;
   cursor: pointer;
+}
+
+.remember-me input {
+  width: auto;
 }
 
 .forgot-password {
   color: #4b70e2;
   text-decoration: none;
+  font-weight: 500;
 }
 
 .forgot-password:hover {
   text-decoration: underline;
+}
+
+.error {
+  background-color: rgba(231, 76, 60, 0.1);
+  color: #e74c3c;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .login-button {
@@ -233,13 +248,13 @@ input:focus {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 2px 6px rgba(75, 112, 226, 0.3);
+  box-shadow: 0 2px 8px rgba(75, 112, 226, 0.3);
 }
 
 .login-button:hover {
   background-color: #3a5bbf;
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(75, 112, 226, 0.4);
+  box-shadow: 0 4px 12px rgba(75, 112, 226, 0.4);
 }
 
 .login-button:disabled {
@@ -249,35 +264,20 @@ input:focus {
   box-shadow: none;
 }
 
-.error {
-  color: #e74c3c;
-  margin-bottom: 1.5rem;
-  padding: 0.85rem;
-  border-radius: 6px;
-  background-color: rgba(231, 76, 60, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.error i {
-  color: #e74c3c;
-}
-
 .social-login {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
 }
 
 .divider {
-  position: relative;
   text-align: center;
-  margin: 1.5rem 0;
+  position: relative;
   color: #888;
+  margin-bottom: 1.5rem;
 }
 
 .divider::before,
 .divider::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   width: 40%;
@@ -300,15 +300,14 @@ input:focus {
 }
 
 .social-button {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: 1px solid #ddd;
-  background-color: #fff;
+  background-color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
   cursor: pointer;
   transition: all 0.3s;
 }
@@ -318,11 +317,107 @@ input:focus {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.google {
+.social-button i {
+  font-size: 1.2rem;
+}
+
+.social-button.google i {
   color: #DB4437;
 }
 
-.github {
-  color: #333;
+.social-button.github i {
+  color: #24292e;
+}
+
+/* Dark mode styles */
+.dark-mode h2 {
+  color: var(--text-color);
+}
+
+.dark-mode .form-subtitle {
+  color: var(--muted-color);
+}
+
+.dark-mode label {
+  color: var(--text-color);
+}
+
+.dark-mode label i {
+  color: var(--accent-color);
+}
+
+.dark-mode input {
+  background-color: var(--input-bg);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+.dark-mode input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(75, 112, 226, 0.3);
+  background-color: rgba(51, 51, 51, 0.8);
+}
+
+.dark-mode .password-toggle {
+  color: var(--muted-color);
+}
+
+.dark-mode .password-toggle:hover {
+  color: var(--accent-color);
+}
+
+.dark-mode .remember-me span {
+  color: var(--text-color);
+}
+
+.dark-mode .forgot-password {
+  color: var(--accent-color);
+}
+
+.dark-mode .forgot-password:hover {
+  color: var(--hover-color);
+}
+
+.dark-mode .error {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: var(--error-color);
+}
+
+.dark-mode .login-button {
+  background-color: var(--accent-color);
+}
+
+.dark-mode .login-button:hover {
+  background-color: var(--hover-color);
+}
+
+.dark-mode .login-button:disabled {
+  background-color: #444;
+}
+
+.dark-mode .divider {
+  color: var(--muted-color);
+}
+
+.dark-mode .divider::before,
+.dark-mode .divider::after {
+  background-color: var(--border-color);
+}
+
+.dark-mode .social-button {
+  background-color: var(--input-bg);
+  border-color: var(--border-color);
+}
+
+.dark-mode .social-button:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .social-button.google i {
+  color: #ff6b6b;
+}
+
+.dark-mode .social-button.github i {
+  color: #e0e0e0;
 }
 </style>

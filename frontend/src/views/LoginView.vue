@@ -2,8 +2,8 @@
   <div class="login-container">
     <div class="login-content">
       <div class="login-branding">
-        <h1>{{ $t('app.name') }}</h1>
-        <p>{{ $t('app.tagline') }}</p>
+        <h1>SyncDoc</h1>
+        <p>Collaborative Document Editing</p>
         <div class="illustration">
           <i class="fas fa-file-alt main-icon"></i>
           <i class="fas fa-users secondary-icon"></i>
@@ -13,7 +13,7 @@
       <div class="login-card">
         <LoginForm />
         <div class="signup-link">
-          {{ $t('navbar.login') }}? <router-link to="/signup">{{ $t('navbar.signup') }}</router-link>
+          Don't have an account? <router-link to="/signup">Sign Up</router-link>
         </div>
       </div>
     </div>
@@ -127,6 +127,37 @@ import LoginForm from '../components/LoginForm.vue';
 .signup-link a:hover {
   color: #3a5bbf;
   text-decoration: underline;
+}
+
+/* Dark mode styles */
+.dark-mode .login-container {
+  background: linear-gradient(135deg, var(--background-color) 0%, #1a1a1a 100%);
+}
+
+.dark-mode .login-content {
+  background-color: var(--card-bg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .login-branding {
+  background: linear-gradient(135deg, var(--accent-color) 0%, #3a5bbf 100%);
+}
+
+.dark-mode .login-card {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.dark-mode .signup-link {
+  color: var(--muted-color);
+}
+
+.dark-mode .signup-link a {
+  color: var(--accent-color);
+}
+
+.dark-mode .signup-link a:hover {
+  color: var(--hover-color);
 }
 
 @media (max-width: 768px) {

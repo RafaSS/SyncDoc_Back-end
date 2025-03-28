@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import i18n from "../i18n";
 
 export const useThemeStore = defineStore("theme", () => {
   // State
@@ -29,6 +30,10 @@ export const useThemeStore = defineStore("theme", () => {
   // Initialize theme
   function initialize() {
     applyTheme();
+    // Set the language from storage
+    if (i18n.global.locale) {
+      i18n.global.locale.value = language.value as "en" | "pt";
+    }
   }
 
   return {

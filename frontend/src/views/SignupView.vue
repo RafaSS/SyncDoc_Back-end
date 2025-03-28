@@ -2,9 +2,7 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
-import { useI18n } from 'vue-i18n';
 
-const { t } = useI18n();
 const email = ref("");
 const password = ref("");
 const confirmPassword = ref("");
@@ -24,7 +22,7 @@ onMounted(async () => {
 
 async function handleSignup() {
   if (password.value !== confirmPassword.value) {
-    error.value = t('signup.passwordMismatch');
+    error.value = "Passwords do not match";
     return;
   }
   
@@ -35,7 +33,7 @@ async function handleSignup() {
     await authStore.signup(email.value, password.value);
     router.push("/");
   } catch (err: any) {
-    error.value = err.message || t('signup.failed');
+    error.value = err.message || "Failed to create account";
   } finally {
     loading.value = false;
   }
@@ -50,8 +48,8 @@ function togglePasswordVisibility() {
   <div class="signup-container">
     <div class="signup-content">
       <div class="signup-branding">
-        <h1>{{ $t('app.name') }}</h1>
-        <p>{{ $t('app.tagline') }}</p>
+        <h1>SyncDoc</h1>
+        <p>Collaborative Document Editing</p>
         <div class="illustration">
           <i class="fas fa-file-alt main-icon"></i>
           <i class="fas fa-users secondary-icon"></i>
@@ -59,8 +57,8 @@ function togglePasswordVisibility() {
         </div>
       </div>
       <div class="signup-card">
-        <h2>{{ $t('navbar.signup') }}</h2>
-        <p class="form-subtitle">{{ $t('signup.createAccount') }}</p>
+        <h2>Sign Up</h2>
+        <p class="form-subtitle">Create a new account</p>
         
         <form @submit.prevent="handleSignup">
           <div v-if="error" class="error-message">
@@ -69,7 +67,7 @@ function togglePasswordVisibility() {
           
           <div class="form-group">
             <label for="email">
-              <i class="fas fa-envelope"></i> {{ $t('signup.email') }}
+              <i class="fas fa-envelope"></i> Email
             </label>
             <div class="input-wrapper">
               <input
@@ -77,7 +75,7 @@ function togglePasswordVisibility() {
                 v-model="email"
                 type="email"
                 required
-                :placeholder="$t('signup.emailPlaceholder')"
+                placeholder="Enter your email"
                 autocomplete="email"
               />
             </div>
@@ -85,7 +83,7 @@ function togglePasswordVisibility() {
           
           <div class="form-group">
             <label for="password">
-              <i class="fas fa-lock"></i> {{ $t('signup.password') }}
+              <i class="fas fa-lock"></i> Password
             </label>
             <div class="input-wrapper">
               <input
@@ -93,7 +91,7 @@ function togglePasswordVisibility() {
                 v-model="password"
                 :type="isPasswordVisible ? 'text' : 'password'"
                 required
-                :placeholder="$t('signup.passwordPlaceholder')"
+                placeholder="Enter your password"
                 autocomplete="new-password"
               />
               <button 
@@ -109,7 +107,7 @@ function togglePasswordVisibility() {
           
           <div class="form-group">
             <label for="confirm-password">
-              <i class="fas fa-lock"></i> {{ $t('signup.confirmPassword') }}
+              <i class="fas fa-lock"></i> Confirm Password
             </label>
             <div class="input-wrapper">
               <input
@@ -117,7 +115,7 @@ function togglePasswordVisibility() {
                 v-model="confirmPassword"
                 :type="isPasswordVisible ? 'text' : 'password'"
                 required
-                :placeholder="$t('signup.confirmPasswordPlaceholder')"
+                placeholder="Confirm your password"
                 autocomplete="new-password"
               />
             </div>
@@ -126,18 +124,18 @@ function togglePasswordVisibility() {
           <div class="terms">
             <label class="checkbox-label">
               <input type="checkbox" required />
-              <span>{{ $t('signup.agreeToTerms') }}</span>
+              <span>I agree to the Terms of Service and Privacy Policy</span>
             </label>
           </div>
           
           <button type="submit" class="btn-primary" :disabled="loading">
             <i class="fas fa-user-plus"></i>
-            {{ loading ? $t('signup.creating') : $t('navbar.signup') }}
+            {{ loading ? "Creating Account..." : "Sign Up" }}
           </button>
         </form>
         
         <div class="login-link">
-          {{ $t('signup.alreadyHaveAccount') }} <router-link to="/login">{{ $t('navbar.login') }}</router-link>
+          Already have an account? <router-link to="/login">Log In</router-link>
         </div>
       </div>
     </div>
@@ -371,6 +369,96 @@ input:focus {
 .login-link a:hover {
   color: #3a5bbf;
   text-decoration: underline;
+}
+
+/* Dark mode styles */
+.dark-mode .signup-container {
+  background: linear-gradient(135deg, var(--background-color) 0%, #1a1a1a 100%);
+}
+
+.dark-mode .signup-content {
+  background-color: var(--card-bg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .signup-branding {
+  background: linear-gradient(135deg, var(--accent-color) 0%, #3a5bbf 100%);
+}
+
+.dark-mode .signup-card {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+}
+
+.dark-mode h2 {
+  color: var(--text-color);
+}
+
+.dark-mode .form-subtitle {
+  color: var(--muted-color);
+}
+
+.dark-mode label {
+  color: var(--text-color);
+}
+
+.dark-mode label i {
+  color: var(--accent-color);
+}
+
+.dark-mode input[type="email"],
+.dark-mode input[type="password"],
+.dark-mode input[type="text"] {
+  background-color: var(--input-bg);
+  border-color: var(--border-color);
+  color: var(--text-color);
+}
+
+.dark-mode input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(75, 112, 226, 0.3);
+  background-color: rgba(51, 51, 51, 0.8);
+}
+
+.dark-mode .password-toggle {
+  color: var(--muted-color);
+}
+
+.dark-mode .password-toggle:hover {
+  color: var(--accent-color);
+}
+
+.dark-mode .checkbox-label {
+  color: var(--text-color);
+}
+
+.dark-mode .btn-primary {
+  background-color: var(--accent-color);
+}
+
+.dark-mode .btn-primary:hover {
+  background-color: var(--hover-color);
+}
+
+.dark-mode .btn-primary:disabled {
+  background-color: #444;
+}
+
+.dark-mode .error-message {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: var(--error-color);
+}
+
+.dark-mode .login-link {
+  color: var(--muted-color);
+}
+
+.dark-mode .login-link a {
+  color: var(--accent-color);
+}
+
+.dark-mode .login-link a:hover {
+  color: var(--hover-color);
 }
 
 @media (max-width: 768px) {

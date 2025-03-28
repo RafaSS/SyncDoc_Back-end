@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
-
-const { t: $t } = useI18n();
 const emit = defineEmits<{
   (e: "showHistory"): void;
 }>();
@@ -14,87 +11,87 @@ function showHistory() {
 <template>
   <div id="toolbar" class="editor-toolbar">
     <span class="ql-formats">
-      <select class="ql-header" :title="$t('editor.toolbar.heading')">
-        <option value="1">{{ $t("editor.toolbar.h1") }}</option>
-        <option value="2">{{ $t("editor.toolbar.h2") }}</option>
-        <option value="3">{{ $t("editor.toolbar.h3") }}</option>
-        <option value="4">{{ $t("editor.toolbar.h4") }}</option>
-        <option value="5">{{ $t("editor.toolbar.h5") }}</option>
-        <option value="6">{{ $t("editor.toolbar.h6") }}</option>
-        <option selected>{{ $t("editor.toolbar.normal") }}</option>
+      <select class="ql-header" title="Heading">
+        <option value="1">Heading 1</option>
+        <option value="2">Heading 2</option>
+        <option value="3">Heading 3</option>
+        <option value="4">Heading 4</option>
+        <option value="5">Heading 5</option>
+        <option value="6">Heading 6</option>
+        <option selected>Normal</option>
       </select>
     </span>
     <span class="ql-formats">
-      <button class="ql-bold" :title="$t('editor.toolbar.bold')"></button>
-      <button class="ql-italic" :title="$t('editor.toolbar.italic')"></button>
+      <button class="ql-bold" title="Bold"></button>
+      <button class="ql-italic" title="Italic"></button>
       <button
         class="ql-underline"
-        :title="$t('editor.toolbar.underline')"
+        title="Underline"
       ></button>
-      <button class="ql-strike" :title="$t('editor.toolbar.strike')"></button>
+      <button class="ql-strike" title="Strikethrough"></button>
     </span>
     <span class="ql-formats">
-      <select class="ql-color" :title="$t('editor.toolbar.textColor')"></select>
+      <select class="ql-color" title="Text Color"></select>
       <select
         class="ql-background"
-        :title="$t('editor.toolbar.backgroundColor')"
+        title="Background Color"
       ></select>
     </span>
     <span class="ql-formats">
       <button
         class="ql-list"
         value="ordered"
-        :title="$t('editor.toolbar.orderedList')"
+        title="Ordered List"
       ></button>
       <button
         class="ql-list"
         value="bullet"
-        :title="$t('editor.toolbar.bulletList')"
+        title="Bullet List"
       ></button>
       <button
         class="ql-indent"
         value="-1"
-        :title="$t('editor.toolbar.outdent')"
+        title="Outdent"
       ></button>
       <button
         class="ql-indent"
         value="+1"
-        :title="$t('editor.toolbar.indent')"
+        title="Indent"
       ></button>
     </span>
     <span class="ql-formats">
       <button
         class="ql-align"
         value=""
-        :title="$t('editor.toolbar.alignLeft')"
+        title="Align Left"
       ></button>
       <button
         class="ql-align"
         value="center"
-        :title="$t('editor.toolbar.alignCenter')"
+        title="Align Center"
       ></button>
       <button
         class="ql-align"
         value="right"
-        :title="$t('editor.toolbar.alignRight')"
+        title="Align Right"
       ></button>
       <button
         class="ql-align"
         value="justify"
-        :title="$t('editor.toolbar.alignJustify')"
+        title="Align Justify"
       ></button>
     </span>
     <span class="ql-formats">
-      <button class="ql-link" :title="$t('editor.toolbar.link')"></button>
-      <button class="ql-image" :title="$t('editor.toolbar.image')"></button>
+      <button class="ql-link" title="Link"></button>
+      <button class="ql-image" title="Image"></button>
     </span>
     <span class="ql-formats">
       <button
         class="history-btn"
         @click="showHistory"
-        :title="$t('editor.toolbar.history')"
+        title="View History"
       >
-        <i class="fas fa-history"></i> {{ $t("editor.toolbar.history") }}
+        <i class="fas fa-history"></i> History
       </button>
     </span>
   </div>
@@ -200,15 +197,7 @@ function showHistory() {
   border-color: var(--border-color);
 }
 
-:deep(.dark-mode .ql-stroke) {
-  stroke: var(--text-color);
-}
-
-:deep(.dark-mode .ql-fill) {
-  fill: var(--text-color);
-}
-
-:deep(.dark-mode .ql-picker) {
+:deep(.dark-mode .ql-picker-label) {
   color: var(--text-color);
 }
 
@@ -217,27 +206,39 @@ function showHistory() {
   border-color: var(--border-color);
 }
 
+:deep(.dark-mode .ql-picker-item) {
+  color: var(--text-color);
+}
+
+:deep(.dark-mode .ql-stroke) {
+  stroke: var(--text-color);
+}
+
+:deep(.dark-mode .ql-fill) {
+  fill: var(--text-color);
+}
+
 :deep(.dark-mode .ql-picker-item):hover {
   background-color: var(--hover-color);
   color: white;
 }
 
 :deep(.dark-mode .ql-toolbar button:hover) {
-  background-color: rgba(75, 112, 226, 0.25);
+  background-color: rgba(75, 112, 226, 0.2);
 }
 
 :deep(.dark-mode .ql-toolbar button.ql-active) {
   background-color: rgba(75, 112, 226, 0.3);
 }
 
-.dark-mode .history-btn {
+:deep(.dark-mode .history-btn) {
   color: var(--text-color);
   border-color: var(--border-color);
 }
 
-.dark-mode .history-btn:hover {
-  background-color: rgba(75, 112, 226, 0.25);
-  color: #4b70e2;
-  border-color: #4b70e2;
+:deep(.dark-mode .history-btn:hover) {
+  background-color: rgba(75, 112, 226, 0.2);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 </style>

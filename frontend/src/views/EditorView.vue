@@ -11,7 +11,6 @@ import UserList from "../components/UserList.vue";
 import EditorToolbar from "../components/EditorToolbar.vue";
 import ShareModal from "../components/ShareModal.vue";
 import QuillCursors from "quill-cursors";
-import { useI18n } from "vue-i18n";
 
 // Types
 interface DocumentResponse {
@@ -23,14 +22,13 @@ interface DocumentResponse {
 
 const route = useRoute();
 const documentStore = useDocumentStore();
-const { t } = useI18n();
 // const authStore = useAuthStore();
 const documentId = ref(route.params.id as string);
 const editorRef = ref<InstanceType<typeof QuillEditor> | null>(null);
 const isShowingShareModal = ref(false);
 const isShowingHistoryPanel = ref(false);
-const documentTitle = ref(t("editor.untitledDocument"));
-const connectionStatus = ref(t("editor.connecting"));
+const documentTitle = ref("Untitled Document");
+const connectionStatus = ref("Connecting...");
 const connectionColor = ref("#f39c12");
 const isLoading = ref(true);
 const loadError = ref("");
@@ -57,7 +55,7 @@ const editorOptions = {
       transformOnTextChange: true,
     },
   },
-  placeholder: t("editor.placeholder"),
+  placeholder: "Start typing your document...",
   theme: "snow",
 };
 
@@ -93,10 +91,10 @@ async function loadDocumentFromApi() {
     // Update document store with API response
     documentStore.document.id = documentId.value;
     documentStore.updateDocumentTitle(
-      documentData.value?.title || t("editor.untitledDocument")
+      documentData.value?.title || "Untitled Document"
     );
     documentTitle.value =
-      documentData.value?.title || t("editor.untitledDocument");
+      documentData.value?.title || "Untitled Document";
 
     // Fetch document history separately
     await loadDocumentHistory();
@@ -105,7 +103,7 @@ async function loadDocumentFromApi() {
     isLoading.value = false;
   } catch (error) {
     console.error("Error loading document from API:", error);
-    loadError.value = t("editor.error");
+    loadError.value = "Failed to load document. Please try again.";
     isLoading.value = false;
   }
 }
@@ -131,7 +129,7 @@ async function initializeSocketConnection() {
 
   // Setup connection status monitoring
   socketService.on("connect", () => {
-    connectionStatus.value = t("editor.connected");
+    connectionStatus.value = "Connected";
     connectionColor.value = "#27ae60"; // Green for connected
     documentStore.connected = true;
 
@@ -140,13 +138,13 @@ async function initializeSocketConnection() {
   });
 
   socketService.on("disconnect", () => {
-    connectionStatus.value = t("editor.disconnected");
+    connectionStatus.value = "Disconnected";
     connectionColor.value = "#e74c3c"; // Red for disconnected
     documentStore.connected = false;
   });
 
   socketService.on("connect_error", () => {
-    connectionStatus.value = t("editor.connectionError");
+    connectionStatus.value = "Connection Error";
     connectionColor.value = "#e74c3c"; // Red for error
     documentStore.connected = false;
   });
@@ -197,7 +195,6 @@ onBeforeUnmount(() => {
 
 // Join a document
 function joinDocument() {
-  console.log("Joining document:", documentId.value, documentStore.userId);
   socketService.joinDocument(
     documentId.value,
     documentStore.userName,
@@ -291,13 +288,13 @@ function updateTitle() {
 <template>
   <div class="app-container">
     <header>
-      <h1>{{ $t("app.name") }}</h1>
+      <h1>SyncDoc</h1>
       <div class="document-info">
         <input
           type="text"
           v-model="documentTitle"
           @change="updateTitle"
-          :placeholder="$t('editor.untitledDocument')"
+          placeholder="Untitled Document"
         />
         <UserList />
       </div>
@@ -306,12 +303,12 @@ function updateTitle() {
     <main>
       <div v-if="isLoading" class="loading-overlay">
         <div class="loading-spinner"></div>
-        <p>{{ $t("editor.loading") }}</p>
+        <p>Loading document...</p>
       </div>
 
       <div v-else-if="loadError" class="error-message">
         <p>{{ loadError }}</p>
-        <button @click="loadDocumentFromApi">{{ $t("editor.retry") }}</button>
+        <button @click="loadDocumentFromApi">Retry</button>
       </div>
 
       <div v-else class="editor-container">
@@ -341,8 +338,8 @@ function updateTitle() {
         }}</span>
       </div>
       <div class="document-actions">
-        <button @click="$router.push('/')">{{ $t("editor.documents") }}</button>
-        <button @click="showShareModal">{{ $t("editor.share") }}</button>
+        <button @click="$router.push('/')">Documents</button>
+        <button @click="showShareModal">Share</button>
       </div>
     </footer>
 
@@ -403,11 +400,6 @@ main {
   flex-direction: column;
 }
 
-#editor {
-  flex: 1;
-  overflow-y: auto;
-}
-
 .loading-overlay {
   position: absolute;
   top: 0;
@@ -418,15 +410,15 @@ main {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: rgba(255, 255, 255, 0.9);
-  z-index: 100;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 10;
 }
 
 .loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid #f3f3f3;
-  border-top: 5px solid #4285f4;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 1rem;
@@ -438,16 +430,20 @@ main {
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  color: #e74c3c;
+  padding: 2rem;
+  border-radius: 8px;
+  background-color: #f8d7da;
+  color: #721c24;
+  max-width: 80%;
 }
 
 .error-message button {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
   background-color: #4285f4;
   color: white;
   border: none;
+  padding: 0.5rem 1rem;
   border-radius: 4px;
+  margin-top: 1rem;
   cursor: pointer;
 }
 
@@ -462,26 +458,23 @@ footer {
 
 .status {
   display: flex;
+  align-items: center;
   gap: 1rem;
+  font-size: 0.9rem;
 }
 
 .document-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 .document-actions button {
   padding: 0.5rem 1rem;
+  border: none;
   background-color: #4285f4;
   color: white;
-  border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.document-actions button:hover {
-  background-color: #3367d6;
 }
 
 @keyframes spin {

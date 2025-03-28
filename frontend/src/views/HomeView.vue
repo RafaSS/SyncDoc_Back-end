@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import { useDocumentStore } from "../stores/documentStore";
 import { apiService } from "../services/apiService";
 import DocumentList from "../components/DocumentList.vue";
-import { useI18n } from 'vue-i18n'
 
 const router = useRouter();
 const documentStore = useDocumentStore();
@@ -13,7 +12,6 @@ const error = ref("");
 const documents = ref<Array<{ id: string; title: string; userCount: number }>>(
   []
 );
-const { t } = useI18n()
 
 onMounted(async () => {
   // Initialize the document store for user ID only, not sockets
@@ -32,7 +30,7 @@ async function fetchDocuments() {
     console.log("Documents loaded:", documents.value);
   } catch (err) {
     console.error("Failed to fetch documents:", err);
-    error.value = t('home.error');
+    error.value = "Failed to load documents. Please try again.";
   } finally {
     isLoading.value = false;
   }
@@ -46,7 +44,7 @@ async function createNewDocument() {
     }
   } catch (err) {
     console.error("Error creating new document:", err);
-    error.value = t('home.error');
+    error.value = "Failed to create document. Please try again.";
   }
 }
 
@@ -58,25 +56,25 @@ function openDocument(id: string) {
 <template>
   <div class="home-container">
     <header>
-      <h1>{{ $t('app.name') }}</h1>
-      <p>{{ $t('app.tagline') }}</p>
+      <h1>SyncDoc</h1>
+      <p>Collaborative Document Editing</p>
     </header>
 
     <main>
       <div class="actions">
         <button @click="createNewDocument" class="create-btn">
-          <i class="fas fa-plus"></i> {{ $t('home.newDocument') }}
+          <i class="fas fa-plus"></i> New Document
         </button>
       </div>
 
       <div v-if="isLoading" class="loading">
         <div class="loading-spinner"></div>
-        <p>{{ $t('home.loading') }}</p>
+        <p>Loading your documents...</p>
       </div>
       
       <div v-else-if="error" class="error">
         <p>{{ error }}</p>
-        <button @click="fetchDocuments" class="retry-btn">{{ $t('home.retry') }}</button>
+        <button @click="fetchDocuments" class="retry-btn">Retry</button>
       </div>
 
       <DocumentList
@@ -201,21 +199,41 @@ main {
   background-color: #4b70e2;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(75, 112, 226, 0.2);
+  transition: all 0.2s ease;
 }
 
 .retry-btn:hover {
   background-color: #3a5bbf;
-  transform: translateY(-2px);
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .home-container {
+    padding: 1.5rem;
+  }
+  
+  header {
+    padding: 2rem 1rem;
+  }
+  
+  header h1 {
+    font-size: 2.5rem;
+  }
+  
+  header p {
+    font-size: 1.1rem;
+  }
 }
 </style>

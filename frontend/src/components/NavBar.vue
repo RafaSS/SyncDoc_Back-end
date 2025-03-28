@@ -1,32 +1,3 @@
-<template>
-  <nav class="navbar">
-    <div class="logo">
-      <router-link to="/">{{ $t('app.name') }}</router-link>
-    </div>
-    <div class="nav-right">
-      <ThemeSettings />
-      <div class="nav-links">
-        <template v-if="authStore.isLoggedIn">
-          <router-link to="/" class="nav-link">
-            <i class="fas fa-file-alt"></i> {{ $t('navbar.documents') }}
-          </router-link>
-          <button @click="handleLogout" class="logout-btn">
-            <i class="fas fa-sign-out-alt"></i> {{ $t('navbar.logout') }}
-          </button>
-        </template>
-        <template v-else>
-          <router-link to="/login" class="nav-link">
-            <i class="fas fa-sign-in-alt"></i> {{ $t('navbar.login') }}
-          </router-link>
-          <router-link to="/signup" class="signup-btn">
-            <i class="fas fa-user-plus"></i> {{ $t('navbar.signup') }}
-          </router-link>
-        </template>
-      </div>
-    </div>
-  </nav>
-</template>
-
 <script setup lang="ts">
 import { useAuthStore } from "../stores/authStore";
 import { useRouter } from "vue-router";
@@ -48,6 +19,34 @@ async function handleLogout() {
   router.push("/login");
 }
 </script>
+<template>
+  <nav class="navbar">
+    <div class="logo">
+      <router-link to="/">SyncDoc</router-link>
+    </div>
+    <div class="nav-right">
+      <ThemeSettings />
+      <div class="nav-links">
+        <template v-if="authStore.isLoggedIn">
+          <router-link to="/" class="nav-link">
+            <i class="fas fa-file-alt"></i> Documents
+          </router-link>
+          <button @click="handleLogout" class="logout-btn">
+            <i class="fas fa-sign-out-alt"></i> Logout
+          </button>
+        </template>
+        <template v-else>
+          <router-link to="/login" class="nav-link">
+            <i class="fas fa-sign-in-alt"></i> Log In
+          </router-link>
+          <router-link to="/signup" class="signup-btn">
+            <i class="fas fa-user-plus"></i> Sign Up
+          </router-link>
+        </template>
+      </div>
+    </div>
+  </nav>
+</template>
 
 <style scoped>
 .navbar {
