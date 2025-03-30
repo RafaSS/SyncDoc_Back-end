@@ -107,7 +107,7 @@ function togglePasswordVisibility() {
       </button>
     </form>
 
-    <div class="social-login">
+    <!-- <div class="social-login">
       <p class="divider">Or continue with</p>
       <div class="social-buttons">
         <button class="social-button google">
@@ -117,7 +117,7 @@ function togglePasswordVisibility() {
           <i class="fab fa-github"></i>
         </button>
       </div>
-    </div>
+    </div> -->
   </div>
 </template>
 
