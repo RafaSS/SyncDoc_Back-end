@@ -25,7 +25,7 @@ async function handleSignup() {
     error.value = "Passwords do not match";
     return;
   }
-  
+
   loading.value = true;
   error.value = "";
 
@@ -59,16 +59,14 @@ function togglePasswordVisibility() {
       <div class="signup-card">
         <h2>Sign Up</h2>
         <p class="form-subtitle">Create a new account</p>
-        
+
         <form @submit.prevent="handleSignup">
           <div v-if="error" class="error-message">
             <i class="fas fa-exclamation-circle"></i> {{ error }}
           </div>
-          
+
           <div class="form-group">
-            <label for="email">
-              <i class="fas fa-envelope"></i> Email
-            </label>
+            <label for="email"> <i class="fas fa-envelope"></i> Email </label>
             <div class="input-wrapper">
               <input
                 id="email"
@@ -80,11 +78,9 @@ function togglePasswordVisibility() {
               />
             </div>
           </div>
-          
+
           <div class="form-group">
-            <label for="password">
-              <i class="fas fa-lock"></i> Password
-            </label>
+            <label for="password"> <i class="fas fa-lock"></i> Password </label>
             <div class="input-wrapper">
               <input
                 id="password"
@@ -94,17 +90,19 @@ function togglePasswordVisibility() {
                 placeholder="Enter your password"
                 autocomplete="new-password"
               />
-              <button 
-                type="button" 
-                class="password-toggle" 
+              <button
+                type="button"
+                class="password-toggle"
                 @click="togglePasswordVisibility"
                 tabindex="-1"
               >
-                <i :class="isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
+                <i
+                  :class="isPasswordVisible ? 'fas fa-eye-slash' : 'fas fa-eye'"
+                ></i>
               </button>
             </div>
           </div>
-          
+
           <div class="form-group">
             <label for="confirm-password">
               <i class="fas fa-lock"></i> Confirm Password
@@ -120,20 +118,20 @@ function togglePasswordVisibility() {
               />
             </div>
           </div>
-          
-          <div class="terms">
+
+          <!-- <div class="terms">
             <label class="checkbox-label">
               <input type="checkbox" required />
               <span>I agree to the Terms of Service and Privacy Policy</span>
             </label>
-          </div>
-          
+          </div> -->
+
           <button type="submit" class="btn-primary" :disabled="loading">
             <i class="fas fa-user-plus"></i>
             {{ loading ? "Creating Account..." : "Sign Up" }}
           </button>
         </form>
-        
+
         <div class="login-link">
           Already have an account? <router-link to="/login">Log In</router-link>
         </div>
@@ -465,20 +463,20 @@ input:focus {
   .signup-content {
     flex-direction: column;
   }
-  
+
   .signup-branding {
     padding: 2rem;
   }
-  
+
   .illustration {
     width: 150px;
     height: 150px;
   }
-  
+
   .main-icon {
     font-size: 5rem;
   }
-  
+
   .secondary-icon {
     font-size: 2rem;
   }

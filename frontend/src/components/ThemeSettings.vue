@@ -1,6 +1,6 @@
 <template>
   <div class="theme-settings">
-    <div class="setting-group">
+    <!-- <div class="setting-group">
       <select
         class="language-select dark-mode-select"
         id="language-select"
@@ -10,7 +10,7 @@
         <option value="en">English</option>
         <option value="pt">Português</option>
       </select>
-    </div>
+    </div> -->
     <div class="setting-group">
       <label for="theme-toggle">Dark Mode</label>
       <div class="toggle-switch">
