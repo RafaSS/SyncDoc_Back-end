@@ -34,18 +34,18 @@ import { computed } from "vue";
 
 const themeStore = useThemeStore();
 
-const currentLanguage = computed({
-  get: () => themeStore.language,
-  set: (value) => {
-    themeStore.setLanguage(value);
-  },
-});
+// const currentLanguage = computed({
+//   get: () => themeStore.language,
+//   set: (value) => {
+//     themeStore.setLanguage(value);
+//   },
+// });
 
 const isDarkMode = computed(() => themeStore.darkMode);
 
-function changeLanguage() {
-  themeStore.setLanguage(currentLanguage.value);
-}
+// function changeLanguage() {
+//   themeStore.setLanguage(currentLanguage.value);
+// }
 </script>
 
 <style scoped>
