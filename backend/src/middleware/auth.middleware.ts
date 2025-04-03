@@ -10,20 +10,19 @@ export const isAuthenticated = async (
   next: NextFunction
 ) => {
   let token;
-  // console.log("Auth token from cookie:", req.cookies.auth_token);
 
-  // First check for auth_token in cookies
-  if (req.cookies && req.cookies.auth_token) {
-    token = req.cookies.auth_token;
-  }
-
-  // Then check Authorization header (Bearer token)
+  // First check Authorization header (Bearer token)
   const authHeader = req.headers.authorization;
-  if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+  if (authHeader && authHeader.startsWith("Bearer ")) {
     const parts = authHeader.split(" ");
     if (parts.length === 2) {
       token = parts[1];
     }
+  }
+
+  // Then check for auth_token in cookies
+  if (!token && req.cookies && req.cookies.auth_token) {
+    token = req.cookies.auth_token;
   }
 
   if (!token) {
@@ -32,7 +31,6 @@ export const isAuthenticated = async (
 
   try {
     // Verify the token with Supabase
-    // console.log("Verifying token with Supabase");
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error) {
@@ -40,7 +38,6 @@ export const isAuthenticated = async (
 
       // Clear invalid cookie if present
       if (req.cookies && req.cookies.auth_token) {
-        // console.log("Clearing invalid cookie", error);
         res.clearCookie("auth_token");
       }
 
