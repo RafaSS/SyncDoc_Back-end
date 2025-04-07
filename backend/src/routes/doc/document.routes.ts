@@ -145,6 +145,29 @@ router.post("/", ...authMiddleware, async (req, res) => {
 });
 
 /**
+ * @route DELETE /api/documents/:id
+ * @description Delete a document
+ * @access Private
+ */
+router.delete("/:id", ...authMiddleware, async (req, res) => {
+  console.log("Deleting document...🎶🎶🎶");
+  const { id } = req.params;
+
+  try {
+    const success = await documentService.deleteDocument(id);
+
+    if (!success) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("Error deleting document:", error);
+    res.status(500).json({ error: "Failed to delete document" });
+  }
+});
+
+/**
  * @route POST /api/documents/:id/share
  * @description Share a document with another user
  * @access Private

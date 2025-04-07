@@ -39,4 +39,5 @@ export interface IDocumentService {
     userId: string,
     role: "viewer" | "editor" | "owner"
   ): Promise<void>;
+  deleteDocument(documentId: string): Promise<boolean>;
 }

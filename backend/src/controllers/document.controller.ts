@@ -122,4 +122,26 @@ export class DocumentController {
       res.status(500).json({ error: errorMessage });
     }
   };
+
+  public deleteDocument = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const success = await this.documentService.deleteDocument(id);
+
+      if (!success) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      res.status(200).json({ success: true });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "An error occurred";
+      res.status(500).json({ error: errorMessage });
+    }
+  };
 }

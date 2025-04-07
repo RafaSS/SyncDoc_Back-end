@@ -222,6 +222,10 @@ export class DocumentService implements IDocumentService {
     }
   }
 
+  public async deleteDocument(documentId: string): Promise<boolean> {
+    return this.documentRepository.deleteDocument(documentId);
+  }
+
   public async removeUserFromDocument(
     documentId: string,
     userId: string
