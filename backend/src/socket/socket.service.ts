@@ -243,7 +243,10 @@ export class SocketService {
               return acc;
             }, {} as Record<string, string>);
 
-          const allUsers = { ...documentUsers, ...activeUsersForDocument };
+          const allUsers = {
+            // ...documentUsers,
+            ...activeUsersForDocument,
+          };
 
           socket.emit("user-list", allUsers);
         } catch (error) {
@@ -277,7 +280,12 @@ export class SocketService {
             .to(documentId)
             .emit("text-change", documentId, delta, source, userId, content);
 
-          // console.log(`Document ${documentId} changes queued for saving (by ${userName || "unknown user"})`);
+          console.log(
+            `Document ${documentId} changes queued for saving (by ${
+              userName || "unknown user"
+            })`
+          );
+          console.log(delta);
         }
       );
 
