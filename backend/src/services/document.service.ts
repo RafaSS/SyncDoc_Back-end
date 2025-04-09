@@ -132,7 +132,7 @@ export class DocumentService implements IDocumentService {
     const deltaChange: DeltaChange = {
       delta: { ops: delta.ops || [] },
       userId: userId || socketId,
-      userName: userName,
+      userName: userName || "",
       timestamp: Date.now(),
     };
 
@@ -140,13 +140,16 @@ export class DocumentService implements IDocumentService {
     const existingDeltas = document.deltas || [];
     const deltas = [...existingDeltas, deltaChange];
 
-    // Save the document change if user is authenticated
+    // Save the document change if user is authenticated with valid UUID
     if (userId) {
-      await this.documentRepository.saveDocumentChange(
-        documentId,
-        userId,
-        delta.ops || []
-      );
+      const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+      if (isValidUuid) {
+        await this.documentRepository.saveDocumentChange(
+          documentId,
+          userId,
+          delta.ops || []
+        );
+      }
     }
 
     // Call the repository method with updated parameter order
@@ -155,7 +158,7 @@ export class DocumentService implements IDocumentService {
       content, // Pass content directly - repository will handle the JSONB conversion
       delta,
       userId,
-      userName,
+      userName || "",
       socketId
     );
   }
@@ -194,6 +197,14 @@ export class DocumentService implements IDocumentService {
     userId: string,
     role: "viewer" | "editor" | "owner"
   ): Promise<void> {
+    // Validate user ID is a proper UUID
+    const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    
+    if (!isValidUuid) {
+      console.log(`Invalid user ID format: ${userId}, permission update skipped`);
+      return;
+    }
+
     // Check if permission already exists
     const { data, error } = await supabase
       .from(TABLES.DOCUMENT_PERMISSIONS)

@@ -1,6 +1,6 @@
-import { IDocument } from '../interfaces/document.interface';
-import { DeltaChange } from '../interfaces/delta.interface';
-import { v4 as uuidv4 } from 'uuid';
+import { IDocument } from "../interfaces/document.interface";
+import { DeltaChange } from "../interfaces/delta.interface";
+import { v4 as uuidv4 } from "uuid";
 
 export class Document implements IDocument {
   public id: string;
@@ -11,10 +11,12 @@ export class Document implements IDocument {
   public createdAt: Date;
   public updatedAt: Date;
   public ownerId?: string;
+  public created_at: string;
+  public updated_at: string;
 
   constructor(
-    title: string = 'Untitled Document',
-    content: string = '',
+    title: string = "Untitled Document",
+    content: string = "",
     ownerId?: string,
     id: string = uuidv4()
   ) {
@@ -26,5 +28,7 @@ export class Document implements IDocument {
     this.createdAt = new Date();
     this.updatedAt = new Date();
     this.ownerId = ownerId;
+    this.created_at = this.createdAt.toISOString();
+    this.updated_at = this.updatedAt.toISOString();
   }
 }

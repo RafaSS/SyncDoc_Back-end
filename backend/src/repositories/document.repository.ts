@@ -107,9 +107,9 @@ export class DocumentRepository {
     try {
       if (!userId) return false;
 
-      // If userId starts with temp_, it's not an authenticated user
-      // Only allow reading for unauthenticated users
-      if (userId.startsWith("temp_") && requiredPermission !== "viewer") {
+      // Validate user ID is a proper UUID
+      const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+      if (!isValidUuid) {
         return false;
       }
 
@@ -425,13 +425,21 @@ export class DocumentRepository {
     permission: "viewer" | "editor" | "owner"
   ): Promise<any> {
     try {
+      // Validate user ID is a proper UUID
+      const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+      
+      if (!isValidUuid) {
+        console.log(`Invalid user ID format: ${userId}, sharing operation skipped`);
+        return null;
+      }
+
       // First check if document exists
       const docExists = await this.getDocumentById(documentId);
       if (!docExists) {
         throw new Error(`Document ${documentId} not found`);
       }
 
-      // Check if user already has permissions for this document
+      // Check if permission already exists
       const { data: existingPerm, error: existingPermError } = await supabase
         .from(TABLES.DOCUMENT_PERMISSIONS)
         .select("*")
@@ -439,7 +447,6 @@ export class DocumentRepository {
         .eq("user_id", userId)
         .maybeSingle();
 
-      // If user already has permissions, update them
       if (existingPerm) {
         const { data, error } = await supabase
           .from(TABLES.DOCUMENT_PERMISSIONS)
@@ -449,69 +456,40 @@ export class DocumentRepository {
           .eq("document_id", documentId)
           .eq("user_id", userId)
           .select("*")
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error("Error updating document permission:", error);
-          throw new Error(
-            `Error updating document permission: ${error.message}`
-          );
+          throw new Error(`Error updating document permission: ${error.message}`);
         }
 
         return data;
       }
 
-      // Otherwise, insert new permissions
-      // This might fail if the user doesn't exist in the auth system
-      // We'll handle errors gracefully
-      try {
-        const { data, error } = await supabase
-          .from(TABLES.DOCUMENT_PERMISSIONS)
-          .insert({
-            document_id: documentId,
-            user_id: userId,
-            permission_level: permission,
-          })
-          .select("*")
-          .single();
-
-        if (error) {
-          // Special error handling for foreign key violation
-          if (
-            error.code === "23503" ||
-            error.message.includes("foreign key constraint")
-          ) {
-            console.warn(
-              `Foreign key constraint when sharing with user ${userId} - user might not exist in auth system`
-            );
-            // Return simulated success with basic info
-            return {
-              document_id: documentId,
-              user_id: userId,
-              permission_level: permission,
-            };
-          }
-          console.log(
-            "Error sharing document with user:",
-            userId,
-            "permission:",
-            permission,
-            "error:",
-            error
-          );
-          throw new Error(`Error sharing document: ${error.message}`);
-        }
-
-        return data;
-      } catch (insertError) {
-        console.error("Error inserting document permission:", insertError);
-        // Return simulated success with basic info in any error case
-        return {
+      // Insert new permissions for valid user
+      const { data, error } = await supabase
+        .from(TABLES.DOCUMENT_PERMISSIONS)
+        .insert({
           document_id: documentId,
           user_id: userId,
           permission_level: permission,
-        };
+        })
+        .select("*")
+        .maybeSingle();
+
+      if (error) {
+        console.log(
+          "Error sharing document with user:",
+          userId,
+          "permission:",
+          permission,
+          "error:",
+          error
+        );
+        throw new Error(`Error sharing document: ${error.message}`);
       }
+
+      return data;
     } catch (err: any) {
       console.error("Error sharing document:", err);
       throw err;
@@ -616,34 +594,34 @@ export class DocumentRepository {
     userId?: string
   ): Promise<void> {
     try {
+      // Get the document
       const document = await this.getDocumentById(documentId);
-      if (!document) throw new Error(`Document ${documentId} not found`);
+      if (!document) {
+        throw new Error(`Document ${documentId} not found`);
+      }
 
-      // Update the current active users
-      const updatedUsers = {
-        ...(document.users || {}),
-        [socketId]: userName,
-      };
+      // Update users map
+      const users = document.users || {};
+      users[socketId] = userName;
 
+      // Update the document with the new user
       await supabase
         .from(TABLES.DOCUMENTS)
-        .update({ users: updatedUsers })
+        .update({ users })
         .eq("id", documentId);
 
-      // Only try to establish a permanent relationship for authenticated users
+      // If user is authenticated with a valid UUID, update permissions
       if (userId) {
-        try {
-          // Check if this user ID might be a valid Supabase Auth ID
-          // Attempt to add user permission, but handle errors gracefully
+        const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        
+        if (isValidUuid) {
           await this.shareDocument(documentId, userId, "editor");
           console.log(
             `User ${userId} added to document ${documentId} permissions`
           );
-        } catch (shareError: any) {
-          // Don't throw error here - just log it and continue
-          // This allows temporary users to still work with the document
+        } else {
           console.log(
-            `Note: Couldn't add user ${userId} to document permissions (this is normal for temporary users)`
+            `Skipping permission update for invalid user ID: ${userId}`
           );
         }
       }
@@ -668,7 +646,7 @@ export class DocumentRepository {
     content: any,
     delta: Delta,
     userId?: string,
-    userName: string = "Anonymous",
+    userName: string = "",
     socketId: string = ""
   ): Promise<void> {
     try {
@@ -690,9 +668,12 @@ export class DocumentRepository {
       const existingDeltas = document.deltas || [];
       const deltas = [...existingDeltas, deltaChange];
 
-      // Save the document change if user is authenticated
+      // Save the document change if user is authenticated with valid UUID
       if (userId) {
-        await this.saveDocumentChange(documentId, userId, delta.ops || []);
+        const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+        if (isValidUuid) {
+          await this.saveDocumentChange(documentId, userId, delta.ops || []);
+        }
       }
 
       // Update the document content
@@ -751,6 +732,14 @@ export class DocumentRepository {
     userId: string
   ): Promise<boolean> {
     try {
+      // Skip operation for non-UUID users
+      const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+      
+      if (!isValidUuid) {
+        console.log(`Invalid user ID format: ${userId}, removal operation skipped`);
+        return true; // Return success to avoid errors
+      }
+
       const { error } = await supabase
         .from(TABLES.DOCUMENT_PERMISSIONS)
         .delete()
@@ -758,9 +747,7 @@ export class DocumentRepository {
         .eq("user_id", userId);
 
       if (error) {
-        throw new Error(`Error removing document access: ${error.message}`, {
-          cause: error,
-        });
+        throw new Error(`Error removing document access: ${error.message}`);
       }
 
       return true;
