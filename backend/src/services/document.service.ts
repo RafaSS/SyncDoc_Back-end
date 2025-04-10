@@ -1,4 +1,8 @@
-import { Delta, DeltaChange } from "../interfaces/delta.interface";
+import {
+  Delta,
+  DeltaChange,
+  DeltaOperation,
+} from "../interfaces/delta.interface";
 import { IDocument } from "../interfaces/document.interface";
 import { IDocumentService } from "../interfaces/document-service.interface";
 import { DocumentRepository } from "../repositories/document.repository";
@@ -94,7 +98,7 @@ export class DocumentService implements IDocumentService {
   ): Promise<{ id: string }> {
     const document = await this.documentRepository.createDocument(
       title || "Untitled Document",
-      content || { ops: [] },
+      content || ({} as Delta),
       userId
     );
 
@@ -130,7 +134,7 @@ export class DocumentService implements IDocumentService {
 
     // Create delta change record
     const deltaChange: DeltaChange = {
-      delta: { ops: delta.ops || [] },
+      delta: { ops: delta.ops || [] } as Delta,
       userId: userId || socketId,
       userName: userName || "",
       timestamp: Date.now(),
@@ -142,12 +146,15 @@ export class DocumentService implements IDocumentService {
 
     // Save the document change if user is authenticated with valid UUID
     if (userId) {
-      const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+      const isValidUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          userId
+        );
       if (isValidUuid) {
         await this.documentRepository.saveDocumentChange(
           documentId,
           userId,
-          delta.ops || []
+          (delta.ops || []) as DeltaOperation[]
         );
       }
     }
@@ -198,10 +205,15 @@ export class DocumentService implements IDocumentService {
     role: "viewer" | "editor" | "owner"
   ): Promise<void> {
     // Validate user ID is a proper UUID
-    const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
-    
+    const isValidUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        userId
+      );
+
     if (!isValidUuid) {
-      console.log(`Invalid user ID format: ${userId}, permission update skipped`);
+      console.log(
+        `Invalid user ID format: ${userId}, permission update skipped`
+      );
       return;
     }
 

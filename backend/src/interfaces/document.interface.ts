@@ -17,7 +17,7 @@ export interface IDocument {
 /**
  * Document permission levels
  */
-export type PermissionLevel = 'viewer' | 'editor' | 'owner';
+export type PermissionLevel = "viewer" | "editor" | "owner";
 
 /**
  * Document permission record

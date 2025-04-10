@@ -1,18 +1,5 @@
-/**
- * Represents a Quill Delta operation
- */
-export interface DeltaOperation {
-  insert?: string | { [key: string]: any };
-  delete?: number;
-  attributes?: { [key: string]: any };
-}
-
-/**
- * Represents a Quill Delta - the core format for describing content and changes
- */
-export interface Delta {
-  ops: DeltaOperation[];
-}
+import Delta from 'quill-delta';
+import { DeltaOperation } from 'quill';
 
 /**
  * Represents a delta change with metadata
@@ -23,3 +10,5 @@ export interface DeltaChange {
   userName: string;
   timestamp: number;
 }
+
+export { Delta, DeltaOperation };

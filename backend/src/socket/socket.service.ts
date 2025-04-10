@@ -1,9 +1,12 @@
 import { Server, Socket } from "socket.io";
 import { IDocumentService } from "../interfaces/document-service.interface";
-import { Delta } from "../interfaces/delta.interface";
+import {
+  Delta,
+  DeltaChange,
+  DeltaOperation,
+} from "../interfaces/delta.interface";
 import jwt from "jsonwebtoken";
 import { supabase } from "../config/supabase";
-import { DeltaOperation } from "../types";
 
 export class SocketService {
   private io: Server;
@@ -183,7 +186,7 @@ export class SocketService {
             if (!document) {
               const result = await this.documentService.createDocument(
                 "Untitled Document",
-                { ops: [] },
+                {} as Delta,
                 userId
               );
               documentId = result.id;
@@ -268,7 +271,7 @@ export class SocketService {
 
           this.pendingContentChanges[documentId] = {
             content,
-            deltaChange: { ops: delta },
+            deltaChange: { ops: delta } as Delta,
             socketId: socket.id,
             userName: userName || "",
             userId: this.activeUsers[socket.id]?.userId,
@@ -278,7 +281,14 @@ export class SocketService {
 
           socket
             .to(documentId)
-            .emit("text-change", documentId, delta, source, userId, content);
+            .emit(
+              "remote-text-change",
+              documentId,
+              delta,
+              source,
+              userId,
+              content
+            );
 
           console.log(
             `Document ${documentId} changes queued for saving (by ${
