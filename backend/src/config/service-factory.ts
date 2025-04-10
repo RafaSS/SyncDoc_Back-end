@@ -6,6 +6,7 @@ import { AuthRepository } from "../repositories/auth.repository";
 import { AuthService } from "../services/auth.service";
 import { UserService } from "../services/user.service";
 import { SocketService } from "../socket/socket.service";
+
 import { Server } from "socket.io";
 import * as http from "http";
 
@@ -29,6 +30,7 @@ export function createServices(httpServer?: http.Server) {
         "http://localhost:5173",
         "http://localhost:4173",
         "https://sync-doc.vercel.app",
+        "https://sync-doc-front-end.vercel.app",
       ],
       methods: ["GET", "POST"],
       allowedHeaders: ["Authorization"],
@@ -37,10 +39,7 @@ export function createServices(httpServer?: http.Server) {
   });
 
   // Initialize services
-  const documentService = new DocumentService(
-    documentRepository,
-    supabaseUserRepository
-  );
+  const documentService = new DocumentService(documentRepository);
   const authService = new AuthService(authRepository, supabaseUserRepository);
   const userService = new UserService(legacyUserRepository);
   const socketService = new SocketService(io, documentService);
