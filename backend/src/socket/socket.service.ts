@@ -307,8 +307,15 @@ export class SocketService {
 
       socket.on(
         "cursor-move",
-        async (documentId: string, cursorPosition: any, userId: string) => {
-          socket.to(documentId).emit("cursor-move", userId, cursorPosition);
+        async (
+          documentId: string,
+          cursorPosition: any,
+          userId: string,
+          socketId: string
+        ) => {
+          socket
+            .to(documentId)
+            .emit("cursor-move", documentId, userId, cursorPosition, socketId);
         }
       );
 
